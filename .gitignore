@@ -1,0 +1,17 @@
+node_modules
+dist
+dist-ssr
+*.local
+
+# Editor folders
+.vscode
+.idea
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Env files
+.env
+.env.production
+.env.local
