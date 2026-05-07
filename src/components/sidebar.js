@@ -3,6 +3,7 @@
 // ============================================
 
 import { router } from '../utils/router.js';
+import { authService } from '../services/auth-service.js';
 import { STORAGE_KEYS } from '../utils/constants.js';
 
 export function renderSidebar() {
@@ -41,6 +42,10 @@ export function renderSidebar() {
         <span class="icon" id="theme-icon">🌙</span>
         <span id="theme-label">Modo Oscuro</span>
       </a>
+      <a class="sidebar-link" id="nav-logout">
+        <span class="icon">🚪</span>
+        <span>Cerrar Sesión</span>
+      </a>
     </div>
   `;
 
@@ -61,6 +66,12 @@ export function renderSidebar() {
     document.documentElement.setAttribute('data-theme', newTheme);
     localStorage.setItem(STORAGE_KEYS.THEME, newTheme);
     updateThemeUI(newTheme);
+  });
+
+  // Logout
+  document.getElementById('nav-logout').addEventListener('click', () => {
+    authService.logout();
+    window.location.reload();
   });
 
   // Apply saved theme
