@@ -7,6 +7,7 @@ import { renderSidebar } from './components/sidebar.js';
 import { renderNavbar, updateNavbarTitle } from './components/navbar.js';
 import { authService } from './services/auth-service.js';
 import { invoiceService } from './services/invoice-service.js';
+import { initDemoUser } from './utils/init-demo.js';
 
 // Pages
 import { renderLogin } from './pages/login.js';
@@ -65,4 +66,7 @@ function initApp() {
 }
 
 // Boot
-document.addEventListener('DOMContentLoaded', initApp);
+document.addEventListener('DOMContentLoaded', async () => {
+  await initDemoUser();
+  initApp();
+});
