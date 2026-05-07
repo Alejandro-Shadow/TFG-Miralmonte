@@ -57,12 +57,12 @@ class Router {
   /**
    * Handle route change
    */
-  handleRoute() {
+  async handleRoute() {
     const route = this.getCurrentRoute();
     this.currentRoute = route;
     const handler = this.routes[route] || this.routes['dashboard'];
     if (handler) {
-      handler(this.getParams());
+      await handler(this.getParams());
     }
     // Update active sidebar link
     document.querySelectorAll('.sidebar-link').forEach((link) => {

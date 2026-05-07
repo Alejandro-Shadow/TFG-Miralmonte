@@ -1,256 +1,233 @@
 // ============================================
-// FacturApp - Invoice Service (CRUD with localStorage)
+// FacturApp - Invoice Service (CRUD with Supabase)
 // ============================================
 
+import { supabase, getCurrentUserId } from '../utils/supabase.js';
 import { STORAGE_KEYS, INVOICE_STATUS, DEFAULT_EMITTER } from '../utils/constants.js';
 import { generateId, generateInvoiceNumber } from '../utils/helpers.js';
 
 class InvoiceService {
   constructor() {
-    this._ensureSampleData();
+    this.clienteId = null;
+    this.emisorId = null;
   }
 
-  /**
-   * Get all invoices
-   */
-  getAll() {
-    const data = localStorage.getItem(STORAGE_KEYS.INVOICES);
-    return data ? JSON.parse(data) : [];
+  setContext(clienteId, emisorId) {
+    this.clienteId = clienteId;
+    this.emisorId = emisorId;
   }
 
-  /**
-   * Get invoice by ID
-   */
-  getById(id) {
-    return this.getAll().find((inv) => inv.id === id) || null;
-  }
+  async getAll() {
+    try {
+      const { data, error } = await supabase
+        .from('facturas')
+        .select('*')
+        .eq('id_emisor', this.emisorId)
+        .order('fecha_creacion_registro', { ascending: false });
 
-  /**
-   * Create a new invoice
-   */
-  create(invoiceData) {
-    const invoices = this.getAll();
-    const nextNum = this._getNextNumber();
-    const invoice = {
-      ...invoiceData,
-      id: generateId(),
-      number: generateInvoiceNumber(nextNum),
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-    invoices.push(invoice);
-    this._save(invoices);
-    this._incrementNumber();
-    return invoice;
-  }
-
-  /**
-   * Update an existing invoice
-   */
-  update(id, data) {
-    const invoices = this.getAll();
-    const idx = invoices.findIndex((inv) => inv.id === id);
-    if (idx === -1) return null;
-
-    // Cannot edit emitted invoices
-    if (invoices[idx].status === INVOICE_STATUS.EMITTED) {
-      throw new Error('No se puede editar una factura emitida a Verifactu');
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('Error fetching invoices:', error);
+      return [];
     }
-
-    invoices[idx] = {
-      ...invoices[idx],
-      ...data,
-      id, // preserve id
-      number: invoices[idx].number, // preserve number
-      updatedAt: new Date().toISOString(),
-    };
-    this._save(invoices);
-    return invoices[idx];
   }
 
-  /**
-   * Delete an invoice
-   */
-  delete(id) {
-    const invoices = this.getAll().filter((inv) => inv.id !== id);
-    this._save(invoices);
+  async getById(id) {
+    try {
+      const { data, error } = await supabase
+        .from('facturas')
+        .select('*')
+        .eq('id', id)
+        .eq('id_emisor', this.emisorId)
+        .single();
+
+      if (error) throw error;
+      return data || null;
+    } catch (error) {
+      console.error('Error fetching invoice:', error);
+      return null;
+    }
   }
 
-  /**
-   * Emit invoice to Verifactu (changes status, blocks editing)
-   */
-  emitToVerifactu(id) {
-    const invoices = this.getAll();
-    const idx = invoices.findIndex((inv) => inv.id === id);
-    if (idx === -1) return null;
+  async create(invoiceData) {
+    try {
+      const { data: serieData } = await supabase
+        .from('serieFacturacion')
+        .select('numeroActual')
+        .eq('idEmisor', this.emisorId)
+        .single();
 
-    invoices[idx].status = INVOICE_STATUS.EMITTED;
-    invoices[idx].emittedAt = new Date().toISOString();
-    invoices[idx].updatedAt = new Date().toISOString();
-    this._save(invoices);
-    return invoices[idx];
+      const nextNum = serieData?.numeroActual || 1;
+      const invoice = {
+        id_emisor: this.emisorId,
+        id_cliente: invoiceData.id_cliente,
+        numero_factura: nextNum,
+        fecha_emision: invoiceData.fecha_emision,
+        tipo_factura: invoiceData.tipo_factura || 'factura',
+        descripcion_general: invoiceData.descripcion_general,
+        estado_pago: 'pendiente',
+        subtotal_sin_iva: invoiceData.subtotal_sin_iva,
+        porcentaje_iva: invoiceData.porcentaje_iva || 21,
+        total_factura: invoiceData.total_factura,
+        importe_iva: invoiceData.importe_iva,
+        notas: invoiceData.notas,
+      };
+
+      const { data, error } = await supabase
+        .from('facturas')
+        .insert([invoice])
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      await supabase
+        .from('serieFacturacion')
+        .update({ numeroActual: nextNum + 1 })
+        .eq('idEmisor', this.emisorId);
+
+      return data;
+    } catch (error) {
+      console.error('Error creating invoice:', error);
+      throw error;
+    }
   }
 
-  /**
-   * Cancel an invoice
-   */
-  cancel(id) {
-    const invoices = this.getAll();
-    const idx = invoices.findIndex((inv) => inv.id === id);
-    if (idx === -1) return null;
+  async update(id, data) {
+    try {
+      const invoice = await this.getById(id);
+      if (!invoice) return null;
 
-    invoices[idx].status = INVOICE_STATUS.CANCELLED;
-    invoices[idx].updatedAt = new Date().toISOString();
-    this._save(invoices);
-    return invoices[idx];
+      if (invoice.estado_verifactu === 'emitida') {
+        throw new Error('No se puede editar una factura emitida a Verifactu');
+      }
+
+      const { data: updated, error } = await supabase
+        .from('facturas')
+        .update(data)
+        .eq('id', id)
+        .eq('id_emisor', this.emisorId)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return updated;
+    } catch (error) {
+      console.error('Error updating invoice:', error);
+      throw error;
+    }
   }
 
-  /**
-   * Get statistics
-   */
-  getStats() {
-    const invoices = this.getAll();
-    const drafts = invoices.filter((i) => i.status === INVOICE_STATUS.DRAFT);
-    const emitted = invoices.filter((i) => i.status === INVOICE_STATUS.EMITTED);
-    const cancelled = invoices.filter((i) => i.status === INVOICE_STATUS.CANCELLED);
+  async delete(id) {
+    try {
+      const { error } = await supabase
+        .from('facturas')
+        .delete()
+        .eq('id', id)
+        .eq('id_emisor', this.emisorId);
 
-    const totalAmount = invoices.reduce((sum, inv) => {
-      const lines = inv.lines || [];
-      const invTotal = lines.reduce((s, l) => {
-        const lineTotal = (parseFloat(l.quantity) || 0) * (parseFloat(l.price) || 0);
-        return s + lineTotal + lineTotal * ((parseFloat(l.ivaRate) || 0) / 100);
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error deleting invoice:', error);
+      throw error;
+    }
+  }
+
+  async emitToVerifactu(id) {
+    try {
+      const { data, error } = await supabase
+        .from('facturas')
+        .update({
+          estado_verifactu: 'emitida',
+          fecha_creacion_registro: new Date().toISOString(),
+        })
+        .eq('id', id)
+        .eq('id_emisor', this.emisorId)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('Error emitting invoice:', error);
+      throw error;
+    }
+  }
+
+  async cancel(id) {
+    try {
+      const { data, error } = await supabase
+        .from('facturas')
+        .update({ estado_pago: 'anulada' })
+        .eq('id', id)
+        .eq('id_emisor', this.emisorId)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('Error cancelling invoice:', error);
+      throw error;
+    }
+  }
+
+  async getStats() {
+    try {
+      const invoices = await this.getAll();
+
+      const totalAmount = invoices.reduce((sum, inv) => {
+        return sum + (parseFloat(inv.total_factura) || 0);
       }, 0);
-      return sum + invTotal;
-    }, 0);
 
-    return {
-      total: invoices.length,
-      drafts: drafts.length,
-      emitted: emitted.length,
-      cancelled: cancelled.length,
-      totalAmount: Math.round(totalAmount * 100) / 100,
-    };
+      return {
+        total: invoices.length,
+        drafts: invoices.filter(i => !i.estado_verifactu).length,
+        emitted: invoices.filter(i => i.estado_verifactu === 'emitida').length,
+        cancelled: invoices.filter(i => i.estado_pago === 'anulada').length,
+        totalAmount: Math.round(totalAmount * 100) / 100,
+      };
+    } catch (error) {
+      console.error('Error getting stats:', error);
+      return { total: 0, drafts: 0, emitted: 0, cancelled: 0, totalAmount: 0 };
+    }
   }
 
-  /**
-   * Search invoices
-   */
-  search(query) {
-    if (!query) return this.getAll();
-    const q = query.toLowerCase();
-    return this.getAll().filter(
-      (inv) =>
-        inv.number.toLowerCase().includes(q) ||
-        (inv.receiver?.name || '').toLowerCase().includes(q) ||
-        (inv.emitter?.name || '').toLowerCase().includes(q)
-    );
+  async search(query) {
+    try {
+      if (!query) return this.getAll();
+
+      const { data, error } = await supabase
+        .from('facturas')
+        .select('*')
+        .eq('id_emisor', this.emisorId)
+        .or(`numero_factura.ilike.%${query}%,descripcion_general.ilike.%${query}%`);
+
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('Error searching invoices:', error);
+      return [];
+    }
   }
 
-  /**
-   * Filter by status
-   */
-  filterByStatus(status) {
-    if (!status || status === 'all') return this.getAll();
-    return this.getAll().filter((inv) => inv.status === status);
-  }
+  async filterByStatus(status) {
+    try {
+      if (!status || status === 'all') return this.getAll();
 
-  // --- Private methods ---
+      const { data, error } = await supabase
+        .from('facturas')
+        .select('*')
+        .eq('id_emisor', this.emisorId)
+        .eq('estado_verifactu', status);
 
-  _save(invoices) {
-    localStorage.setItem(STORAGE_KEYS.INVOICES, JSON.stringify(invoices));
-  }
-
-  _getNextNumber() {
-    const num = localStorage.getItem(STORAGE_KEYS.NEXT_NUMBER);
-    return num ? parseInt(num) : 1;
-  }
-
-  _incrementNumber() {
-    const current = this._getNextNumber();
-    localStorage.setItem(STORAGE_KEYS.NEXT_NUMBER, String(current + 1));
-  }
-
-  _ensureSampleData() {
-    const existing = localStorage.getItem(STORAGE_KEYS.INVOICES);
-    if (existing) return;
-
-    const sampleInvoices = [
-      {
-        id: generateId(),
-        number: 'FAC-2026-0001',
-        date: '2026-03-01',
-        dueDate: '2026-04-01',
-        status: INVOICE_STATUS.EMITTED,
-        emitter: { ...DEFAULT_EMITTER },
-        receiver: {
-          name: 'Tech Solutions S.A.',
-          nif: 'A87654321',
-          address: 'Av. de la Tecnología 42',
-          city: 'Barcelona',
-          postalCode: '08001',
-          email: 'admin@techsolutions.es',
-        },
-        lines: [
-          { id: generateId(), description: 'Desarrollo Web Frontend', quantity: 80, price: 45, ivaRate: 21 },
-          { id: generateId(), description: 'Diseño UI/UX', quantity: 20, price: 55, ivaRate: 21 },
-        ],
-        notes: 'Proyecto Q1 2026',
-        template: 'modern',
-        createdAt: '2026-03-01T10:00:00Z',
-        updatedAt: '2026-03-01T10:00:00Z',
-        emittedAt: '2026-03-02T09:00:00Z',
-      },
-      {
-        id: generateId(),
-        number: 'FAC-2026-0002',
-        date: '2026-03-05',
-        dueDate: '2026-04-05',
-        status: INVOICE_STATUS.DRAFT,
-        emitter: { ...DEFAULT_EMITTER },
-        receiver: {
-          name: 'Innovatech Labs',
-          nif: 'B11223344',
-          address: 'Calle Innovación 15',
-          city: 'Valencia',
-          postalCode: '46001',
-          email: 'contacto@innovatech.es',
-        },
-        lines: [
-          { id: generateId(), description: 'Consultoría técnica', quantity: 40, price: 60, ivaRate: 21 },
-          { id: generateId(), description: 'Soporte mensual', quantity: 1, price: 500, ivaRate: 21 },
-        ],
-        notes: 'Pendiente de revisión',
-        template: 'classic',
-        createdAt: '2026-03-05T14:00:00Z',
-        updatedAt: '2026-03-05T14:00:00Z',
-      },
-      {
-        id: generateId(),
-        number: 'FAC-2026-0003',
-        date: '2026-03-08',
-        dueDate: '2026-04-08',
-        status: INVOICE_STATUS.DRAFT,
-        emitter: { ...DEFAULT_EMITTER },
-        receiver: {
-          name: 'Green Energy Corp.',
-          nif: 'B99887766',
-          address: 'Paseo de la Energía 8',
-          city: 'Sevilla',
-          postalCode: '41001',
-          email: 'info@greenenergy.es',
-        },
-        lines: [
-          { id: generateId(), description: 'Auditoría de sistemas', quantity: 16, price: 75, ivaRate: 21 },
-        ],
-        notes: '',
-        template: 'minimal',
-        createdAt: '2026-03-08T09:30:00Z',
-        updatedAt: '2026-03-08T09:30:00Z',
-      },
-    ];
-
-    this._save(sampleInvoices);
-    localStorage.setItem(STORAGE_KEYS.NEXT_NUMBER, '4');
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('Error filtering invoices:', error);
+      return [];
+    }
   }
 }
 

@@ -6,10 +6,12 @@ import { invoiceService } from '../services/invoice-service.js';
 import { formatCurrency, formatDate, calculateInvoiceTotals } from '../utils/helpers.js';
 import { router } from '../utils/router.js';
 
-export function renderDashboard() {
+export async function renderDashboard() {
   const content = document.getElementById('content');
-  const stats = invoiceService.getStats();
-  const invoices = invoiceService.getAll();
+  content.innerHTML = '<div class="loading">Cargando...</div>';
+
+  const stats = await invoiceService.getStats();
+  const invoices = await invoiceService.getAll();
   const recent = invoices.slice(-5).reverse();
 
   content.innerHTML = `
@@ -84,7 +86,8 @@ export function renderDashboard() {
     const { exportAllToExcel } = await import('../services/export-service.js');
     const { showToast } = await import('../components/toast.js');
     try {
-      await exportAllToExcel(invoiceService.getAll());
+      const allInvoices = await invoiceService.getAll();
+      await exportAllToExcel(allInvoices);
       showToast('Exportación completada', 'success');
     } catch (e) {
       showToast('Error al exportar', 'error');
@@ -101,15 +104,16 @@ export function renderDashboard() {
 
 function renderRecentTable(invoices) {
   const rows = invoices.map((inv) => {
-    const totals = calculateInvoiceTotals(inv.lines);
-    const statusClass = inv.status === 'emitida' ? 'badge-emitted' : inv.status === 'anulada' ? 'badge-cancelled' : 'badge-draft';
+    const total = parseFloat(inv.total_factura) || 0;
+    const statusClass = inv.estado_verifactu === 'emitida' ? 'badge-emitted' : inv.estado_pago === 'anulada' ? 'badge-cancelled' : 'badge-draft';
+    const statusText = inv.estado_verifactu === 'emitida' ? 'Emitida' : inv.estado_pago === 'anulada' ? 'Anulada' : 'Borrador';
     return `
       <tr class="recent-row" data-id="${inv.id}" style="cursor:pointer">
-        <td><strong>${inv.number}</strong></td>
-        <td>${inv.receiver?.name || '-'}</td>
-        <td>${formatDate(inv.date)}</td>
-        <td><span class="badge ${statusClass}">${inv.status}</span></td>
-        <td style="text-align:right"><strong>${formatCurrency(totals.total)}</strong></td>
+        <td><strong>FAC-${inv.numero_factura}</strong></td>
+        <td>${inv.descripcion_general || '-'}</td>
+        <td>${formatDate(inv.fecha_emision)}</td>
+        <td><span class="badge ${statusClass}">${statusText}</span></td>
+        <td style="text-align:right"><strong>${formatCurrency(total)}</strong></td>
       </tr>
     `;
   }).join('');

@@ -12,7 +12,7 @@ import { exportToXML, exportToCSV, exportToExcel } from '../services/export-serv
 let currentFilter = 'all';
 let currentSearch = '';
 
-export function renderInvoices() {
+export async function renderInvoices() {
   const content = document.getElementById('content');
 
   content.innerHTML = `
@@ -27,13 +27,13 @@ export function renderInvoices() {
       <div class="invoice-list-controls">
         <div class="filter-group">
           <button class="filter-btn active" data-filter="all">Todas</button>
-          <button class="filter-btn" data-filter="borrador">📝 Borrador</button>
+          <button class="filter-btn" data-filter="">📝 Borrador</button>
           <button class="filter-btn" data-filter="emitida">✅ Emitidas</button>
           <button class="filter-btn" data-filter="anulada">❌ Anuladas</button>
         </div>
         <div class="search-input-wrapper">
           <span>🔍</span>
-          <input type="text" placeholder="Buscar por nº, receptor..." id="inv-search" />
+          <input type="text" placeholder="Buscar por nº, descripción..." id="inv-search" />
         </div>
       </div>
 
@@ -63,23 +63,23 @@ export function renderInvoices() {
   renderTable();
 }
 
-function renderTable() {
+async function renderTable() {
   const container = document.getElementById('invoices-table-container');
-  let invoices = invoiceService.getAll();
+  container.innerHTML = '<div class="loading">Cargando...</div>';
+  let invoices = await invoiceService.getAll();
 
   // Filter
   if (currentFilter !== 'all') {
-    invoices = invoices.filter((inv) => inv.status === currentFilter);
+    invoices = invoices.filter((inv) => {
+      if (currentFilter === 'emitida') return inv.estado_verifactu === 'emitida';
+      if (currentFilter === 'anulada') return inv.estado_pago === 'anulada';
+      return !inv.estado_verifactu; // borrador
+    });
   }
 
   // Search
   if (currentSearch) {
-    const q = currentSearch.toLowerCase();
-    invoices = invoices.filter(
-      (inv) =>
-        inv.number.toLowerCase().includes(q) ||
-        (inv.receiver?.name || '').toLowerCase().includes(q)
-    );
+    invoices = await invoiceService.search(currentSearch);
   }
 
   if (invoices.length === 0) {
@@ -94,26 +94,24 @@ function renderTable() {
   }
 
   const rows = invoices.map((inv) => {
-    const totals = calculateInvoiceTotals(inv.lines);
-    const statusClass = inv.status === 'emitida' ? 'badge-emitted' : inv.status === 'anulada' ? 'badge-cancelled' : 'badge-draft';
-    const canEdit = inv.status === 'borrador';
+    const total = parseFloat(inv.total_factura) || 0;
+    const statusClass = inv.estado_verifactu === 'emitida' ? 'badge-emitted' : inv.estado_pago === 'anulada' ? 'badge-cancelled' : 'badge-draft';
+    const statusText = inv.estado_verifactu === 'emitida' ? 'Emitida' : inv.estado_pago === 'anulada' ? 'Anulada' : 'Borrador';
+    const canEdit = !inv.estado_verifactu;
 
     return `
       <tr>
-        <td><strong style="color: var(--primary-400)">${inv.number}</strong></td>
-        <td>${inv.receiver?.name || '-'}</td>
-        <td>${formatDate(inv.date)}</td>
-        <td>${formatDate(inv.dueDate)}</td>
-        <td><span class="badge ${statusClass}">${inv.status}</span></td>
-        <td style="text-align:right"><strong>${formatCurrency(totals.total)}</strong></td>
+        <td><strong style="color: var(--primary-400)">FAC-${inv.numero_factura}</strong></td>
+        <td>${inv.descripcion_general || '-'}</td>
+        <td>${formatDate(inv.fecha_emision)}</td>
+        <td>${formatDate(inv.fecha_emision)}</td>
+        <td><span class="badge ${statusClass}">${statusText}</span></td>
+        <td style="text-align:right"><strong>${formatCurrency(total)}</strong></td>
         <td>
           <div class="table-actions">
             <button class="btn-icon" title="Ver" data-view="${inv.id}">👁️</button>
             ${canEdit ? `<button class="btn-icon" title="Editar" data-edit="${inv.id}">✏️</button>` : ''}
             <button class="btn-icon" title="PDF" data-pdf="${inv.id}">📥</button>
-            <button class="btn-icon" title="XML" data-xml="${inv.id}">📄</button>
-            <button class="btn-icon" title="Excel" data-excel="${inv.id}">📊</button>
-            <button class="btn-icon" title="CSV" data-csv="${inv.id}">📋</button>
             ${canEdit ? `<button class="btn-icon" title="Eliminar" data-delete="${inv.id}">🗑️</button>` : ''}
           </div>
         </td>
@@ -156,8 +154,8 @@ function renderTable() {
         message: '¿Estás seguro de que deseas eliminar esta factura? Esta acción no se puede deshacer.',
         confirmText: 'Eliminar',
         type: 'danger',
-        onConfirm: () => {
-          invoiceService.delete(btn.dataset.delete);
+        onConfirm: async () => {
+          await invoiceService.delete(btn.dataset.delete);
           showToast('Factura eliminada', 'success');
           renderTable();
         },
@@ -167,41 +165,11 @@ function renderTable() {
 
   container.querySelectorAll('[data-pdf]').forEach((btn) => {
     btn.addEventListener('click', async () => {
-      const inv = invoiceService.getById(btn.dataset.pdf);
+      const inv = await invoiceService.getById(btn.dataset.pdf);
       if (inv) {
         const { generatePDF } = await import('../services/pdf-service.js');
-        await generatePDF(inv, inv.template || 'classic');
+        await generatePDF(inv, 'classic');
         showToast('PDF generado', 'success');
-      }
-    });
-  });
-
-  container.querySelectorAll('[data-xml]').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      const inv = invoiceService.getById(btn.dataset.xml);
-      if (inv) {
-        exportToXML(inv);
-        showToast('XML exportado', 'success');
-      }
-    });
-  });
-
-  container.querySelectorAll('[data-excel]').forEach((btn) => {
-    btn.addEventListener('click', async () => {
-      const inv = invoiceService.getById(btn.dataset.excel);
-      if (inv) {
-        await exportToExcel(inv);
-        showToast('Excel exportado', 'success');
-      }
-    });
-  });
-
-  container.querySelectorAll('[data-csv]').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      const inv = invoiceService.getById(btn.dataset.csv);
-      if (inv) {
-        exportToCSV(inv);
-        showToast('CSV exportado', 'success');
       }
     });
   });
