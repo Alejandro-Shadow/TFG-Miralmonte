@@ -1,24 +1,11 @@
-import { supabase, setAuthToken, getAuthToken, clearAuthToken } from '../utils/supabase.js';
+import { supabase } from '../utils/supabase.js';
 
 class AuthService {
   async login(email, password) {
     try {
-      const { data, error } = await supabase
-        .from('cliente')
-        .select('*')
-        .eq('email', email)
-        .single();
-
-      if (error || !data) {
-        throw new Error('Usuario no encontrado');
-      }
-
-      if (data.password !== password) {
-        throw new Error('Contraseña incorrecta');
-      }
-
-      setAuthToken(data.id.toString());
-      return { success: true, cliente: data };
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) throw error;
+      return { success: true, user: data.user };
     } catch (error) {
       console.error('Login error:', error);
       return { success: false, error: error.message };
@@ -27,64 +14,44 @@ class AuthService {
 
   async register(email, password) {
     try {
-      const { data, error } = await supabase
-        .from('cliente')
-        .insert([{ email, password, actualizacion_pagada: false }])
-        .select()
-        .single();
-
+      const { data, error } = await supabase.auth.signUp({ email, password });
       if (error) throw error;
-
-      setAuthToken(data.id.toString());
-      return { success: true, cliente: data };
+      return { success: true, user: data.user };
     } catch (error) {
       console.error('Register error:', error);
       return { success: false, error: error.message };
     }
   }
 
-  logout() {
-    clearAuthToken();
+  async logout() {
+    await supabase.auth.signOut();
   }
 
-  getClienteId() {
-    const token = getAuthToken();
-    return token ? parseInt(token) : null;
+  async getSession() {
+    const { data } = await supabase.auth.getSession();
+    return data.session;
   }
 
-  isAuthenticated() {
-    return !!getAuthToken();
+  async getUser() {
+    const { data } = await supabase.auth.getUser();
+    return data.user;
   }
 
-  async getEmisores(clienteId) {
-    try {
-      const { data, error } = await supabase
-        .from('emisores')
-        .select('*')
-        .eq('id', clienteId);
-
-      if (error) throw error;
-      return data || [];
-    } catch (error) {
-      console.error('Error fetching emisores:', error);
-      return [];
-    }
+  getEmisorId() {
+    // Lee el id_emisor del JWT actual (síncrono desde la sesión cacheada)
+    const session = supabase.auth.session?.();
+    const meta = session?.user?.user_metadata;
+    return meta?.id_emisor || null;
   }
 
-  async createEmisor(emisorData) {
-    try {
-      const { data, error } = await supabase
-        .from('emisores')
-        .insert([emisorData])
-        .select()
-        .single();
+  async getEmisorIdAsync() {
+    const { data } = await supabase.auth.getSession();
+    return data.session?.user?.user_metadata?.id_emisor || null;
+  }
 
-      if (error) throw error;
-      return data;
-    } catch (error) {
-      console.error('Error creating emisor:', error);
-      throw error;
-    }
+  async isAuthenticated() {
+    const { data } = await supabase.auth.getSession();
+    return !!data.session;
   }
 }
 

@@ -2,9 +2,7 @@
 // FacturApp - Invoice Service (CRUD with Supabase)
 // ============================================
 
-import { supabase, getCurrentUserId } from '../utils/supabase.js';
-import { STORAGE_KEYS, INVOICE_STATUS, DEFAULT_EMITTER } from '../utils/constants.js';
-import { generateId, generateInvoiceNumber } from '../utils/helpers.js';
+import { supabase } from '../utils/supabase.js';
 
 class InvoiceService {
   constructor() {
@@ -21,12 +19,18 @@ class InvoiceService {
     try {
       const { data, error } = await supabase
         .from('facturas')
-        .select('*')
+        .select('*, clientesEmisor(nombre, cif_nif_nie, correo_electronico, direccion_completa)')
         .eq('id_emisor', this.emisorId)
-        .order('fecha_creacion_registro', { ascending: false });
+        .order('id', { ascending: false });
 
       if (error) throw error;
-      return data || [];
+      return (data || []).map(inv => ({
+        ...inv,
+        receptor_nombre: inv.clientesEmisor?.nombre || inv.receptor_nombre || '-',
+        receptor_cif_nif: inv.clientesEmisor?.cif_nif_nie || inv.receptor_cif_nif || '',
+        receptor_email: inv.clientesEmisor?.correo_electronico || inv.receptor_email || '',
+        receptor_direccion: inv.clientesEmisor?.direccion_completa || inv.receptor_direccion || '',
+      }));
     } catch (error) {
       console.error('Error fetching invoices:', error);
       return [];
@@ -37,13 +41,20 @@ class InvoiceService {
     try {
       const { data, error } = await supabase
         .from('facturas')
-        .select('*')
+        .select('*, clientesEmisor(nombre, cif_nif_nie, correo_electronico, direccion_completa)')
         .eq('id', id)
         .eq('id_emisor', this.emisorId)
         .single();
 
       if (error) throw error;
-      return data || null;
+      if (!data) return null;
+      return {
+        ...data,
+        receptor_nombre: data.clientesEmisor?.nombre || data.receptor_nombre || '-',
+        receptor_cif_nif: data.clientesEmisor?.cif_nif_nie || data.receptor_cif_nif || '',
+        receptor_email: data.clientesEmisor?.correo_electronico || data.receptor_email || '',
+        receptor_direccion: data.clientesEmisor?.direccion_completa || data.receptor_direccion || '',
+      };
     } catch (error) {
       console.error('Error fetching invoice:', error);
       return null;
@@ -52,16 +63,22 @@ class InvoiceService {
 
   async create(invoiceData) {
     try {
+      // Obtener la primera serie disponible del emisor
       const { data: serieData } = await supabase
         .from('serieFacturacion')
-        .select('numeroActual')
+        .select('id, serie, numeroActual')
         .eq('idEmisor', this.emisorId)
+        .order('id', { ascending: true })
+        .limit(1)
         .single();
 
       const nextNum = serieData?.numeroActual || 1;
+      const serie = serieData?.serie || 'FAC';
+
       const invoice = {
         id_emisor: this.emisorId,
-        id_cliente: invoiceData.id_cliente,
+        id_cliente: invoiceData.id_cliente || null,
+        serie: serie,
         numero_factura: nextNum,
         fecha_emision: invoiceData.fecha_emision,
         tipo_factura: invoiceData.tipo_factura || 'factura',
@@ -71,7 +88,7 @@ class InvoiceService {
         porcentaje_iva: invoiceData.porcentaje_iva || 21,
         total_factura: invoiceData.total_factura,
         importe_iva: invoiceData.importe_iva,
-        notas: invoiceData.notas,
+        notas: invoiceData.notas || null,
       };
 
       const { data, error } = await supabase
@@ -82,10 +99,13 @@ class InvoiceService {
 
       if (error) throw error;
 
-      await supabase
-        .from('serieFacturacion')
-        .update({ numeroActual: nextNum + 1 })
-        .eq('idEmisor', this.emisorId);
+      // Incrementar el contador de la serie
+      if (serieData) {
+        await supabase
+          .from('serieFacturacion')
+          .update({ numeroActual: nextNum + 1 })
+          .eq('id', serieData.id);
+      }
 
       return data;
     } catch (error) {
@@ -200,12 +220,16 @@ class InvoiceService {
 
       const { data, error } = await supabase
         .from('facturas')
-        .select('*')
+        .select('*, clientesEmisor(nombre, cif_nif_nie, correo_electronico, direccion_completa)')
         .eq('id_emisor', this.emisorId)
-        .or(`numero_factura.ilike.%${query}%,descripcion_general.ilike.%${query}%`);
+        .ilike('descripcion_general', `%${query}%`);
 
       if (error) throw error;
-      return data || [];
+      return (data || []).map(inv => ({
+        ...inv,
+        receptor_nombre: inv.clientesEmisor?.nombre || '-',
+        receptor_cif_nif: inv.clientesEmisor?.cif_nif_nie || '',
+      }));
     } catch (error) {
       console.error('Error searching invoices:', error);
       return [];

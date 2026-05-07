@@ -7,7 +7,6 @@ import { renderSidebar } from './components/sidebar.js';
 import { renderNavbar, updateNavbarTitle } from './components/navbar.js';
 import { authService } from './services/auth-service.js';
 import { invoiceService } from './services/invoice-service.js';
-import { initDemoUser } from './utils/init-demo.js';
 
 // Pages
 import { renderLogin } from './pages/login.js';
@@ -17,23 +16,41 @@ import { renderCreateInvoice, renderEditInvoice } from './pages/create-invoice.j
 import { renderViewInvoice } from './pages/view-invoice.js';
 import { renderScanQR } from './pages/scan-qr.js';
 
-// Initialize App
-function initApp() {
-  // Check if user is authenticated
-  const clienteId = authService.getClienteId();
-  if (!clienteId) {
+async function initApp() {
+  const session = await authService.getSession();
+
+  if (!session) {
     renderLogin();
     return;
   }
 
-  // Set context for invoice service (using hardcoded emisor for demo)
-  invoiceService.setContext(clienteId, 1);
+  const emisorId = session.user?.user_metadata?.id_emisor;
+  if (!emisorId) {
+    // Usuario autenticado pero sin emisor asignado
+    document.getElementById('content').innerHTML = `
+      <div style="max-width:500px;margin:100px auto;text-align:center;">
+        <div class="card" style="padding:40px">
+          <h2>Cuenta sin empresa asignada</h2>
+          <p style="color:var(--text-secondary);margin:16px 0">
+            Tu cuenta no tiene una empresa (emisor) asignada. Contacta con el administrador.
+          </p>
+          <p style="color:var(--text-muted);font-size:var(--text-sm)">Email: ${session.user.email}</p>
+          <button class="btn btn-ghost" style="margin-top:20px" id="btn-logout">Cerrar Sesión</button>
+        </div>
+      </div>
+    `;
+    document.getElementById('btn-logout')?.addEventListener('click', async () => {
+      await authService.logout();
+      window.location.reload();
+    });
+    return;
+  }
 
-  // Render layout components
+  invoiceService.setContext(session.user.id, emisorId);
+
   renderSidebar();
   renderNavbar();
 
-  // Setup routes
   router
     .on('dashboard', () => {
       updateNavbarTitle('Dashboard');
@@ -60,13 +77,10 @@ function initApp() {
       renderScanQR();
     });
 
-  // Start router
   router.start();
   router.navigate('dashboard');
 }
 
-// Boot
 document.addEventListener('DOMContentLoaded', async () => {
-  await initDemoUser();
-  initApp();
+  await initApp();
 });

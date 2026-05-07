@@ -3,8 +3,9 @@
 // ============================================
 
 import { invoiceService } from '../services/invoice-service.js';
-import { DEFAULT_EMITTER, IVA_RATES, PDF_TEMPLATES, INVOICE_STATUS } from '../utils/constants.js';
-import { createEmptyLine, calculateInvoiceTotals, formatCurrency, toInputDate, generateId } from '../utils/helpers.js';
+import { supabase } from '../utils/supabase.js';
+import { IVA_RATES, PDF_TEMPLATES, INVOICE_STATUS } from '../utils/constants.js';
+import { createEmptyLine, calculateInvoiceTotals, formatCurrency, toInputDate } from '../utils/helpers.js';
 import { router } from '../utils/router.js';
 import { showToast } from '../components/toast.js';
 
@@ -17,30 +18,39 @@ export function renderCreateInvoice() {
   renderForm(null);
 }
 
-export function renderEditInvoice(params) {
-  const invoice = invoiceService.getById(params.id);
+export async function renderEditInvoice(params) {
+  const invoice = await invoiceService.getById(params.id);
   if (!invoice) {
     showToast('Factura no encontrada', 'error');
     router.navigate('invoices');
     return;
   }
 
-  if (invoice.status === INVOICE_STATUS.EMITTED) {
+  if (invoice.estado_verifactu === 'emitida') {
     showToast('No se puede editar una factura emitida', 'warning');
     router.navigate('view-invoice', { id: params.id });
     return;
   }
 
-  invoiceLines = invoice.lines?.length ? [...invoice.lines] : [createEmptyLine()];
-  selectedTemplate = invoice.template || 'classic';
+  invoiceLines = [createEmptyLine()];
+  selectedTemplate = 'classic';
   renderForm(invoice);
 }
 
-function renderForm(existingInvoice) {
+async function renderForm(existingInvoice) {
   const content = document.getElementById('content');
   const isEdit = !!existingInvoice;
-  const emitter = existingInvoice?.emitter || { ...DEFAULT_EMITTER };
-  const receiver = existingInvoice?.receiver || {};
+
+  // Cargar clientes del emisor
+  content.innerHTML = '<div class="loading">Cargando...</div>';
+  const { data: clientes } = await supabase
+    .from('clientesEmisor')
+    .select('*')
+    .order('nombre');
+
+  const clientesOptions = (clientes || [])
+    .map(c => `<option value="${c.id}">${c.nombre} - ${c.cif_nif_nie || ''}</option>`)
+    .join('');
 
   content.innerHTML = `
     <div class="fade-in invoice-form">
@@ -56,46 +66,15 @@ function renderForm(existingInvoice) {
           <div class="form-row">
             <div class="form-group">
               <label class="form-label">Fecha de Emisión *</label>
-              <input type="date" class="form-input" id="inv-date" value="${existingInvoice?.date || toInputDate()}" required />
+              <input type="date" class="form-input" id="inv-date" value="${existingInvoice?.fecha_emision || toInputDate()}" required />
             </div>
             <div class="form-group">
-              <label class="form-label">Fecha de Vencimiento</label>
-              <input type="date" class="form-input" id="inv-due-date" value="${existingInvoice?.dueDate || ''}" />
-            </div>
-          </div>
-        </div>
-
-        <!-- Emisor -->
-        <div class="form-section card">
-          <h3 class="form-section-title">🏢 Datos del Emisor</h3>
-          <div class="form-row">
-            <div class="form-group">
-              <label class="form-label">Nombre / Razón Social *</label>
-              <input type="text" class="form-input" id="emitter-name" value="${emitter.name || ''}" required placeholder="Mi Empresa S.L." />
-            </div>
-            <div class="form-group">
-              <label class="form-label">NIF / CIF *</label>
-              <input type="text" class="form-input" id="emitter-nif" value="${emitter.nif || ''}" required placeholder="B12345678" />
-            </div>
-          </div>
-          <div class="form-row">
-            <div class="form-group">
-              <label class="form-label">Dirección</label>
-              <input type="text" class="form-input" id="emitter-address" value="${emitter.address || ''}" placeholder="Calle Principal 1" />
-            </div>
-            <div class="form-group">
-              <label class="form-label">Ciudad</label>
-              <input type="text" class="form-input" id="emitter-city" value="${emitter.city || ''}" placeholder="Madrid" />
-            </div>
-          </div>
-          <div class="form-row">
-            <div class="form-group">
-              <label class="form-label">Código Postal</label>
-              <input type="text" class="form-input" id="emitter-postal" value="${emitter.postalCode || ''}" placeholder="28001" />
-            </div>
-            <div class="form-group">
-              <label class="form-label">Email</label>
-              <input type="email" class="form-input" id="emitter-email" value="${emitter.email || ''}" placeholder="contacto@empresa.es" />
+              <label class="form-label">Tipo de Factura</label>
+              <select class="form-select" id="inv-tipo">
+                <option value="factura" ${existingInvoice?.tipo_factura === 'factura' ? 'selected' : ''}>Factura</option>
+                <option value="factura_simplificada" ${existingInvoice?.tipo_factura === 'factura_simplificada' ? 'selected' : ''}>Factura Simplificada</option>
+                <option value="factura_rectificativa" ${existingInvoice?.tipo_factura === 'factura_rectificativa' ? 'selected' : ''}>Factura Rectificativa</option>
+              </select>
             </div>
           </div>
         </div>
@@ -103,34 +82,33 @@ function renderForm(existingInvoice) {
         <!-- Receptor -->
         <div class="form-section card">
           <h3 class="form-section-title">👤 Datos del Receptor</h3>
-          <div class="form-row">
-            <div class="form-group">
-              <label class="form-label">Nombre / Razón Social *</label>
-              <input type="text" class="form-input" id="receiver-name" value="${receiver.name || ''}" required placeholder="Cliente S.A." />
-            </div>
-            <div class="form-group">
-              <label class="form-label">NIF / CIF *</label>
-              <input type="text" class="form-input" id="receiver-nif" value="${receiver.nif || ''}" required placeholder="A87654321" />
-            </div>
+          <div class="form-group" style="margin-bottom: var(--space-4)">
+            <label class="form-label">Seleccionar Cliente Existente</label>
+            <select class="form-select" id="cliente-select">
+              <option value="">-- Introducir manualmente --</option>
+              ${clientesOptions}
+            </select>
           </div>
-          <div class="form-row">
-            <div class="form-group">
-              <label class="form-label">Dirección</label>
-              <input type="text" class="form-input" id="receiver-address" value="${receiver.address || ''}" placeholder="Av. del Cliente 42" />
+          <div id="receptor-fields">
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Nombre / Razón Social *</label>
+                <input type="text" class="form-input" id="receiver-name" value="${existingInvoice?.receptor_nombre || ''}" required placeholder="Cliente S.A." />
+              </div>
+              <div class="form-group">
+                <label class="form-label">NIF / CIF *</label>
+                <input type="text" class="form-input" id="receiver-nif" value="${existingInvoice?.receptor_cif_nif || ''}" placeholder="A87654321" />
+              </div>
             </div>
-            <div class="form-group">
-              <label class="form-label">Ciudad</label>
-              <input type="text" class="form-input" id="receiver-city" value="${receiver.city || ''}" placeholder="Barcelona" />
-            </div>
-          </div>
-          <div class="form-row">
-            <div class="form-group">
-              <label class="form-label">Código Postal</label>
-              <input type="text" class="form-input" id="receiver-postal" value="${receiver.postalCode || ''}" placeholder="08001" />
-            </div>
-            <div class="form-group">
-              <label class="form-label">Email</label>
-              <input type="email" class="form-input" id="receiver-email" value="${receiver.email || ''}" placeholder="admin@cliente.es" />
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Dirección</label>
+                <input type="text" class="form-input" id="receiver-address" value="${existingInvoice?.receptor_direccion || ''}" placeholder="Av. del Cliente 42" />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Email</label>
+                <input type="email" class="form-input" id="receiver-email" value="${existingInvoice?.receptor_email || ''}" placeholder="admin@cliente.es" />
+              </div>
             </div>
           </div>
         </div>
@@ -150,7 +128,6 @@ function renderForm(existingInvoice) {
           <button type="button" class="btn btn-ghost add-line-btn" id="add-line">
             ➕ Añadir Línea
           </button>
-
           <div class="invoice-totals" id="invoice-totals"></div>
         </div>
 
@@ -164,7 +141,7 @@ function renderForm(existingInvoice) {
         <div class="form-section card">
           <h3 class="form-section-title">📝 Notas</h3>
           <div class="form-group">
-            <textarea class="form-input" id="inv-notes" rows="3" placeholder="Notas adicionales...">${existingInvoice?.notes || ''}</textarea>
+            <textarea class="form-input" id="inv-notes" rows="3" placeholder="Notas adicionales...">${existingInvoice?.notas || ''}</textarea>
           </div>
         </div>
 
@@ -182,12 +159,25 @@ function renderForm(existingInvoice) {
     </div>
   `;
 
-  // Render lines
   renderLines();
   renderTemplateSelector();
   updateTotals();
 
-  // Events
+  // Autorellenar datos del cliente al seleccionar
+  document.getElementById('cliente-select').addEventListener('change', (e) => {
+    const clienteId = e.target.value;
+    if (!clienteId) {
+      document.getElementById('receptor-fields').style.display = 'block';
+      return;
+    }
+    const cliente = (clientes || []).find(c => String(c.id) === String(clienteId));
+    if (!cliente) return;
+    document.getElementById('receiver-name').value = cliente.nombre || '';
+    document.getElementById('receiver-nif').value = cliente.cif_nif_nie || '';
+    document.getElementById('receiver-address').value = cliente.direccion_completa || '';
+    document.getElementById('receiver-email').value = cliente.correo_electronico || '';
+  });
+
   document.getElementById('form-back').addEventListener('click', () => router.navigate('invoices'));
   document.getElementById('form-cancel').addEventListener('click', () => router.navigate('invoices'));
   document.getElementById('add-line').addEventListener('click', () => {
@@ -196,18 +186,12 @@ function renderForm(existingInvoice) {
     updateTotals();
   });
 
-  document.getElementById('form-draft').addEventListener('click', () => {
-    saveInvoice(existingInvoice, INVOICE_STATUS.DRAFT);
-  });
-
-  document.getElementById('form-emit').addEventListener('click', () => {
-    saveInvoice(existingInvoice, INVOICE_STATUS.EMITTED);
-  });
+  document.getElementById('form-draft').addEventListener('click', () => saveInvoice(existingInvoice, false));
+  document.getElementById('form-emit').addEventListener('click', () => saveInvoice(existingInvoice, true));
 }
 
 function renderLines() {
   const container = document.getElementById('invoice-lines');
-  const ivaOptions = IVA_RATES.map((r) => `<option value="${r.value}">${r.label}</option>`).join('');
 
   container.innerHTML = invoiceLines.map((line, i) => `
     <div class="invoice-line" data-line-idx="${i}">
@@ -222,7 +206,6 @@ function renderLines() {
     </div>
   `).join('');
 
-  // Line events
   container.querySelectorAll('.invoice-line').forEach((lineEl) => {
     const idx = parseInt(lineEl.dataset.lineIdx);
 
@@ -233,7 +216,6 @@ function renderLines() {
         if (['quantity', 'price', 'ivaRate'].includes(field)) val = parseFloat(val) || 0;
         invoiceLines[idx][field] = val;
 
-        // Update subtotal display
         const sub = lineEl.querySelector('.line-subtotal');
         sub.textContent = formatCurrency(invoiceLines[idx].quantity * invoiceLines[idx].price);
         updateTotals();
@@ -288,67 +270,57 @@ function renderTemplateSelector() {
   });
 }
 
-function collectFormData() {
-  return {
-    date: document.getElementById('inv-date').value,
-    dueDate: document.getElementById('inv-due-date').value,
-    emitter: {
-      name: document.getElementById('emitter-name').value,
-      nif: document.getElementById('emitter-nif').value,
-      address: document.getElementById('emitter-address').value,
-      city: document.getElementById('emitter-city').value,
-      postalCode: document.getElementById('emitter-postal').value,
-      email: document.getElementById('emitter-email').value,
-    },
-    receiver: {
-      name: document.getElementById('receiver-name').value,
-      nif: document.getElementById('receiver-nif').value,
-      address: document.getElementById('receiver-address').value,
-      city: document.getElementById('receiver-city').value,
-      postalCode: document.getElementById('receiver-postal').value,
-      email: document.getElementById('receiver-email').value,
-    },
-    lines: invoiceLines,
-    notes: document.getElementById('inv-notes').value,
-    template: selectedTemplate,
+async function saveInvoice(existingInvoice, emit) {
+  const fecha_emision = document.getElementById('inv-date').value;
+  const tipo_factura = document.getElementById('inv-tipo').value;
+  const receptor_nombre = document.getElementById('receiver-name').value;
+  const notas = document.getElementById('inv-notes').value;
+  const id_cliente = document.getElementById('cliente-select').value || null;
+
+  if (!receptor_nombre) {
+    showToast('El nombre del receptor es obligatorio', 'warning');
+    return;
+  }
+  if (!invoiceLines.some(l => l.description && l.quantity > 0 && l.price > 0)) {
+    showToast('Debes añadir al menos una línea válida', 'warning');
+    return;
+  }
+
+  const totals = calculateInvoiceTotals(invoiceLines);
+  const descripcion_general = invoiceLines.map(l => l.description).filter(Boolean).join(', ');
+
+  const invoiceData = {
+    fecha_emision,
+    tipo_factura,
+    descripcion_general,
+    id_cliente: id_cliente ? parseInt(id_cliente) : null,
+    notas,
+    subtotal_sin_iva: totals.subtotal,
+    porcentaje_iva: invoiceLines[0]?.ivaRate || 21,
+    importe_iva: totals.totalIva,
+    total_factura: totals.total,
   };
-}
-
-function validateForm(data) {
-  if (!data.emitter.name || !data.emitter.nif) {
-    showToast('El nombre y NIF del emisor son obligatorios', 'warning');
-    return false;
-  }
-  if (!data.receiver.name || !data.receiver.nif) {
-    showToast('El nombre y NIF del receptor son obligatorios', 'warning');
-    return false;
-  }
-  if (!data.lines.some((l) => l.description && l.quantity > 0 && l.price > 0)) {
-    showToast('Debes añadir al menos una línea de factura válida', 'warning');
-    return false;
-  }
-  return true;
-}
-
-function saveInvoice(existingInvoice, status) {
-  const data = collectFormData();
-  if (!validateForm(data)) return;
-
-  data.status = status;
 
   try {
     if (existingInvoice) {
-      invoiceService.update(existingInvoice.id, data);
-      showToast(status === INVOICE_STATUS.EMITTED ? 'Factura emitida a Verifactu ✅' : 'Factura actualizada', 'success');
-    } else {
-      const created = invoiceService.create(data);
-      if (status === INVOICE_STATUS.EMITTED) {
-        invoiceService.emitToVerifactu(created.id);
+      await invoiceService.update(existingInvoice.id, invoiceData);
+      if (emit) {
+        await invoiceService.emitToVerifactu(existingInvoice.id);
+        showToast('Factura actualizada y emitida a Verifactu ✅', 'success');
+      } else {
+        showToast('Factura actualizada', 'success');
       }
-      showToast(status === INVOICE_STATUS.EMITTED ? 'Factura creada y emitida a Verifactu ✅' : 'Borrador guardado', 'success');
+    } else {
+      const created = await invoiceService.create(invoiceData);
+      if (emit && created) {
+        await invoiceService.emitToVerifactu(created.id);
+        showToast('Factura creada y emitida a Verifactu ✅', 'success');
+      } else {
+        showToast('Borrador guardado', 'success');
+      }
     }
     router.navigate('invoices');
   } catch (err) {
-    showToast(err.message, 'error');
+    showToast('Error: ' + err.message, 'error');
   }
 }

@@ -69,8 +69,8 @@ export function renderSidebar() {
   });
 
   // Logout
-  document.getElementById('nav-logout').addEventListener('click', () => {
-    authService.logout();
+  document.getElementById('nav-logout').addEventListener('click', async () => {
+    await authService.logout();
     window.location.reload();
   });
 
