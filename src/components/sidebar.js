@@ -5,6 +5,7 @@
 import { router } from '../utils/router.js';
 import { authService } from '../services/auth-service.js';
 import { STORAGE_KEYS } from '../utils/constants.js';
+import { icons } from '../utils/icons.js';
 
 export function renderSidebar() {
   const sidebar = document.getElementById('sidebar');
@@ -19,31 +20,31 @@ export function renderSidebar() {
     <nav class="sidebar-nav">
       <span class="sidebar-section-title">Principal</span>
       <a class="sidebar-link" data-route="dashboard" id="nav-dashboard">
-        <span class="icon">📊</span>
+        <span class="icon">${icons.grid}</span>
         <span>Dashboard</span>
       </a>
       <a class="sidebar-link" data-route="invoices" id="nav-invoices">
-        <span class="icon">📋</span>
+        <span class="icon">${icons.fileText}</span>
         <span>Facturas</span>
       </a>
 
       <span class="sidebar-section-title">Acciones</span>
       <a class="sidebar-link" data-route="create-invoice" id="nav-create">
-        <span class="icon">➕</span>
+        <span class="icon">${icons.plusCircle}</span>
         <span>Nueva Factura</span>
       </a>
       <a class="sidebar-link" data-route="scan-qr" id="nav-scan">
-        <span class="icon">📷</span>
+        <span class="icon">${icons.scan}</span>
         <span>Escanear QR</span>
       </a>
     </nav>
     <div class="sidebar-footer">
       <a class="sidebar-link" id="nav-theme-toggle">
-        <span class="icon" id="theme-icon">🌙</span>
+        <span class="icon" id="theme-icon">${icons.moon}</span>
         <span id="theme-label">Modo Oscuro</span>
       </a>
       <a class="sidebar-link" id="nav-logout">
-        <span class="icon">🚪</span>
+        <span class="icon">${icons.logOut}</span>
         <span>Cerrar Sesión</span>
       </a>
     </div>
@@ -83,6 +84,6 @@ export function renderSidebar() {
 function updateThemeUI(theme) {
   const icon = document.getElementById('theme-icon');
   const label = document.getElementById('theme-label');
-  if (icon) icon.textContent = theme === 'light' ? '☀️' : '🌙';
+  if (icon) icon.innerHTML = theme === 'light' ? icons.sun : icons.moon;
   if (label) label.textContent = theme === 'light' ? 'Modo Claro' : 'Modo Oscuro';
 }

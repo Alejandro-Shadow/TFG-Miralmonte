@@ -12,23 +12,69 @@ export async function generatePDF(invoice, templateId = 'classic') {
   const jsPDF = jsPDFModule.jsPDF || jsPDFModule.default;
   await import('jspdf-autotable');
 
+  // Normalize Supabase fields to what templates expect
+  const normalized = normalizeInvoice(invoice);
+
   const doc = new jsPDF();
-  const totals = calculateInvoiceTotals(invoice.lines);
+  const totals = calculateInvoiceTotals(normalized.lines);
 
   switch (templateId) {
     case 'modern':
-      renderModernTemplate(doc, invoice, totals);
+      renderModernTemplate(doc, normalized, totals);
       break;
     case 'minimal':
-      renderMinimalTemplate(doc, invoice, totals);
+      renderMinimalTemplate(doc, normalized, totals);
       break;
     case 'classic':
     default:
-      renderClassicTemplate(doc, invoice, totals);
+      renderClassicTemplate(doc, normalized, totals);
       break;
   }
 
-  doc.save(`${invoice.number}.pdf`);
+  doc.save(`${normalized.number}.pdf`);
+}
+
+/**
+ * Normalize a Supabase invoice object to the format expected by PDF templates
+ */
+function normalizeInvoice(inv) {
+  // If it already has .lines and .number, assume it's already normalized
+  if (inv.lines && inv.number) return inv;
+
+  const subtotal = parseFloat(inv.subtotal_sin_iva) || 0;
+  const ivaRate = parseFloat(inv.porcentaje_iva) || 21;
+
+  return {
+    number: `FAC-${inv.numero_factura || 'XXXX'}`,
+    date: inv.fecha_emision || new Date().toISOString(),
+    dueDate: inv.fecha_vencimiento || '',
+    status: inv.estado_verifactu || 'borrador',
+    emitter: {
+      name: inv.emisor_nombre || 'Mi Empresa S.L.',
+      nif: inv.emisor_cif_nif || '',
+      address: inv.emisor_direccion || '',
+      city: inv.emisor_ciudad || '',
+      postalCode: inv.emisor_cp || '',
+      email: inv.emisor_email || '',
+    },
+    receiver: {
+      name: inv.receptor_nombre || inv.descripcion_general || '-',
+      nif: inv.receptor_cif_nif || '',
+      address: inv.receptor_direccion || '',
+      city: inv.receptor_ciudad || '',
+      postalCode: inv.receptor_cp || '',
+      email: inv.receptor_email || '',
+    },
+    lines: [
+      {
+        description: inv.descripcion_general || 'Servicio',
+        quantity: 1,
+        price: subtotal,
+        ivaRate: ivaRate,
+      },
+    ],
+    notes: inv.notas || '',
+  };
 }
 
 // ======================

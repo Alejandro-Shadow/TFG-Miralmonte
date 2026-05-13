@@ -2,6 +2,8 @@
 // FacturApp - Navbar Component
 // ============================================
 
+import { icons } from '../utils/icons.js';
+
 const PAGE_TITLES = {
   dashboard: 'Dashboard',
   invoices: 'Facturas',
@@ -16,12 +18,12 @@ export function renderNavbar() {
 
   navbar.innerHTML = `
     <div style="display:flex;align-items:center;gap:var(--space-4)">
-      <button class="hamburger" id="hamburger-btn">☰</button>
+      <button class="hamburger" id="hamburger-btn">${icons.menu}</button>
       <h1 class="navbar-title" id="navbar-page-title">Dashboard</h1>
     </div>
     <div class="navbar-actions">
       <div class="navbar-search">
-        <span>🔍</span>
+        <span class="navbar-search-icon">${icons.search}</span>
         <input type="text" placeholder="Buscar facturas..." id="global-search" />
       </div>
     </div>
@@ -30,6 +32,18 @@ export function renderNavbar() {
   // Hamburger menu
   document.getElementById('hamburger-btn').addEventListener('click', () => {
     document.getElementById('sidebar').classList.toggle('open');
+  });
+
+  // Search
+  document.getElementById('global-search').addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+      const query = e.target.value.trim();
+      if (query) {
+        import('../utils/router.js').then(({ router }) => {
+          router.navigate('invoices', { search: query });
+        });
+      }
+    }
   });
 
   // Close sidebar on outside click (mobile)

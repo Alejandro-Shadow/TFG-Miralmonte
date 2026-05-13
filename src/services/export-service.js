@@ -178,15 +178,17 @@ export async function exportAllToExcel(invoices) {
 
   const headers = ['Nº Factura', 'Fecha', 'Receptor', 'Estado', 'Base Imponible', 'IVA', 'Total'];
   const rows = invoices.map((inv) => {
-    const totals = calculateInvoiceTotals(inv.lines);
+    const subtotal = parseFloat(inv.subtotal_sin_iva) || 0;
+    const iva = parseFloat(inv.importe_iva) || 0;
+    const total = parseFloat(inv.total_factura) || 0;
     return [
-      inv.number,
-      formatDate(inv.date),
-      inv.receiver?.name || '',
-      inv.status,
-      totals.subtotal.toFixed(2),
-      totals.totalIva.toFixed(2),
-      totals.total.toFixed(2),
+      `FAC-${inv.numero_factura || ''}`,
+      formatDate(inv.fecha_emision),
+      inv.receptor_nombre || inv.descripcion_general || '',
+      inv.estado_verifactu || 'borrador',
+      subtotal.toFixed(2),
+      iva.toFixed(2),
+      total.toFixed(2),
     ];
   });
 

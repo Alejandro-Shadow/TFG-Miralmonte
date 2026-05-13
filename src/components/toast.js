@@ -2,11 +2,13 @@
 // FacturApp - Toast Notifications
 // ============================================
 
+import { icons } from '../utils/icons.js';
+
 const ICONS = {
-  success: '✅',
-  error: '❌',
-  warning: '⚠️',
-  info: 'ℹ️',
+  success: icons.checkCircle,
+  error: icons.xCircle,
+  warning: icons.alertTriangle,
+  info: icons.info,
 };
 
 /**
@@ -19,7 +21,7 @@ export function showToast(message, type = 'info', duration = 3500) {
   toast.innerHTML = `
     <span class="toast-icon">${ICONS[type] || ICONS.info}</span>
     <span>${message}</span>
-    <button class="toast-close" onclick="this.parentElement.remove()">✕</button>
+    <button class="toast-close" onclick="this.parentElement.remove()">${icons.x}</button>
   `;
   container.appendChild(toast);
 

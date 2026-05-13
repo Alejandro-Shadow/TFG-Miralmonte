@@ -7,6 +7,7 @@ import { formatCurrency, formatDate } from '../utils/helpers.js';
 import { router } from '../utils/router.js';
 import { showToast } from '../components/toast.js';
 import { showModal } from '../components/modal.js';
+import { icons } from '../utils/icons.js';
 
 export async function renderViewInvoice(params) {
   const content = document.getElementById('content');
@@ -34,16 +35,20 @@ export async function renderViewInvoice(params) {
     <div class="fade-in">
       <div class="page-header">
         <div>
-          <button class="btn btn-ghost" id="view-back" style="margin-bottom:var(--space-2)">← Volver a Facturas</button>
+          <button class="btn btn-ghost" id="view-back" style="margin-bottom:var(--space-2)">
+            <span class="btn-icon-inline">${icons.arrowLeft}</span> Volver a Facturas
+          </button>
           <h1>Factura FAC-${invoice.numero_factura}</h1>
         </div>
         <div class="page-header-actions">
           ${isDraft ? `
-            <button class="btn btn-primary" id="view-edit">✏️ Editar</button>
-            <button class="btn btn-accent" id="view-emit">🚀 Emitir a Verifactu</button>
-          ` : ''}
-          <button class="btn btn-ghost" id="view-pdf">📥 PDF</button>
-          ${isDraft ? `<button class="btn btn-danger btn-sm" id="view-delete">🗑️ Eliminar</button>` : ''}
+            <button class="btn btn-primary" id="view-edit"><span class="btn-icon-inline">${icons.edit}</span> Editar</button>
+            <button class="btn btn-accent" id="view-emit"><span class="btn-icon-inline">${icons.send}</span> Emitir a Verifactu</button>
+          ` : `
+            <button class="btn btn-warning" id="view-revert"><span class="btn-icon-inline">${icons.refreshCw}</span> Revertir a Borrador</button>
+          `}
+          <button class="btn btn-ghost" id="view-pdf"><span class="btn-icon-inline">${icons.download}</span> PDF</button>
+          ${isDraft ? `<button class="btn btn-danger btn-sm" id="view-delete"><span class="btn-icon-inline">${icons.trash}</span> Eliminar</button>` : ''}
         </div>
       </div>
 
@@ -115,10 +120,10 @@ export async function renderViewInvoice(params) {
     showModal({
       title: 'Emitir a Verifactu',
       message: 'Una vez emitida, la factura no podrá ser editada. ¿Deseas continuar?',
-      confirmText: '🚀 Emitir',
+      confirmText: 'Emitir',
       onConfirm: async () => {
         await invoiceService.emitToVerifactu(invoice.id);
-        showToast('Factura emitida a Verifactu ✅', 'success');
+        showToast('Factura emitida a Verifactu', 'success');
         renderViewInvoice(params);
       },
     });
@@ -134,6 +139,19 @@ export async function renderViewInvoice(params) {
         await invoiceService.delete(invoice.id);
         showToast('Factura eliminada', 'success');
         router.navigate('invoices');
+      },
+    });
+  });
+
+  document.getElementById('view-revert')?.addEventListener('click', () => {
+    showModal({
+      title: 'Revertir a Borrador',
+      message: 'La factura volverá al estado de borrador y podrás editarla o eliminarla. ¿Continuar?',
+      confirmText: 'Revertir',
+      onConfirm: async () => {
+        await invoiceService.revertToDraft(invoice.id);
+        showToast('Factura revertida a borrador', 'success');
+        renderViewInvoice(params);
       },
     });
   });

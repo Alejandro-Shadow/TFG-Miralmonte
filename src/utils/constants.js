@@ -27,9 +27,9 @@ export const IVA_RATES = [
 ];
 
 export const PDF_TEMPLATES = [
-  { id: 'classic', name: 'Clásica', description: 'Formal y corporativa', icon: '📄' },
-  { id: 'modern', name: 'Moderna', description: 'Diseño actual con colores', icon: '🎨' },
-  { id: 'minimal', name: 'Minimalista', description: 'Limpia y sencilla', icon: '✨' },
+  { id: 'classic', name: 'Clásica', description: 'Formal y corporativa', icon: 'fileDoc' },
+  { id: 'modern', name: 'Moderna', description: 'Diseño actual con colores', icon: 'palette' },
+  { id: 'minimal', name: 'Minimalista', description: 'Limpia y sencilla', icon: 'sparkles' },
 ];
 
 export const STORAGE_KEYS = {

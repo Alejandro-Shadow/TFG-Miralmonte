@@ -2,6 +2,8 @@
 // FacturApp - Modal Component
 // ============================================
 
+import { icons } from '../utils/icons.js';
+
 /**
  * Show a confirmation modal
  */
@@ -15,7 +17,7 @@ export function showModal({ title, message, confirmText = 'Confirmar', cancelTex
     <div class="modal fade-in">
       <div class="modal-header">
         <h2>${title}</h2>
-        <button class="btn-icon modal-close-btn" id="modal-close">✕</button>
+        <button class="btn-icon modal-close-btn" id="modal-close">${icons.x}</button>
       </div>
       <p style="color: var(--text-secondary); line-height: 1.6;">${message}</p>
       <div class="modal-footer">
@@ -30,9 +32,9 @@ export function showModal({ title, message, confirmText = 'Confirmar', cancelTex
     overlay.innerHTML = '';
   };
 
-  document.getElementById('modal-confirm').addEventListener('click', () => {
+  document.getElementById('modal-confirm').addEventListener('click', async () => {
+    if (onConfirm) await onConfirm();
     close();
-    if (onConfirm) onConfirm();
   });
 
   document.getElementById('modal-cancel').addEventListener('click', () => {

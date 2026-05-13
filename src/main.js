@@ -52,17 +52,17 @@ async function initApp() {
   renderNavbar();
 
   router
-    .on('dashboard', () => {
+    .on('dashboard', (params) => {
       updateNavbarTitle('Dashboard');
-      renderDashboard();
+      renderDashboard(params);
     })
-    .on('invoices', () => {
+    .on('invoices', (params) => {
       updateNavbarTitle('Facturas');
-      renderInvoices();
+      renderInvoices(params);
     })
-    .on('create-invoice', () => {
+    .on('create-invoice', (params) => {
       updateNavbarTitle('Nueva Factura');
-      renderCreateInvoice();
+      renderCreateInvoice(params);
     })
     .on('edit-invoice', (params) => {
       updateNavbarTitle('Editar Factura');
@@ -72,9 +72,9 @@ async function initApp() {
       updateNavbarTitle('Ver Factura');
       renderViewInvoice(params);
     })
-    .on('scan-qr', () => {
+    .on('scan-qr', (params) => {
       updateNavbarTitle('Escanear QR');
-      renderScanQR();
+      renderScanQR(params);
     });
 
   router.start();
