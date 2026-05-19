@@ -4,6 +4,8 @@
 
 import { invoiceService } from '../services/invoice-service.js';
 import { supabase } from '../utils/supabase.js';
+import { sendInvoiceEmail } from '../services/email-service.js';
+import { saveInvoiceToDrive } from '../services/drive-service.js';
 import { IVA_RATES, PDF_TEMPLATES, INVOICE_STATUS } from '../utils/constants.js';
 import { createEmptyLine, calculateInvoiceTotals, formatCurrency, toInputDate } from '../utils/helpers.js';
 import { router } from '../utils/router.js';
@@ -441,8 +443,9 @@ async function saveInvoice(existingInvoice, emit) {
       total_factura: totals.total,
     };
 
+    let savedInvoice;
     if (existingInvoice) {
-      await invoiceService.update(existingInvoice.id, invoiceData);
+      savedInvoice = await invoiceService.update(existingInvoice.id, invoiceData);
       if (emit) {
         await invoiceService.emitToVerifactu(existingInvoice.id);
         showToast('Factura actualizada y emitida a Verifactu', 'success');
@@ -450,14 +453,41 @@ async function saveInvoice(existingInvoice, emit) {
         showToast('Factura actualizada', 'success');
       }
     } else {
-      const created = await invoiceService.create(invoiceData);
-      if (emit && created) {
-        await invoiceService.emitToVerifactu(created.id);
+      savedInvoice = await invoiceService.create(invoiceData);
+      if (emit && savedInvoice) {
+        await invoiceService.emitToVerifactu(savedInvoice.id);
         showToast('Factura creada y emitida a Verifactu', 'success');
       } else {
         showToast('Borrador guardado', 'success');
       }
     }
+
+    // Envío automático de email si el receptor tiene email
+    if (savedInvoice && receptor_email) {
+      const emailResult = await sendInvoiceEmail(
+        { ...savedInvoice, receptor_nombre, receptor_email },
+        invoiceLines
+      );
+      if (emailResult.success) {
+        showToast('Email enviado al receptor', 'success');
+      }
+    }
+
+    // Guardar automáticamente en Google Drive
+    if (savedInvoice) {
+      try {
+        const { generatePDFBlob } = await import('../services/pdf-service.js');
+        const invoiceWithReceptor = { ...savedInvoice, receptor_nombre, receptor_email };
+        const pdfBlob = await generatePDFBlob(invoiceWithReceptor, 'classic');
+        const driveResult = await saveInvoiceToDrive(invoiceWithReceptor, pdfBlob);
+        if (driveResult.success) {
+          showToast('Guardado en Google Drive', 'success');
+        }
+      } catch (err) {
+        console.error('Error guardando en Drive:', err);
+      }
+    }
+
     router.navigate('invoices');
   } catch (err) {
     showToast('Error: ' + err.message, 'error');

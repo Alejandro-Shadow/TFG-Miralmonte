@@ -8,6 +8,8 @@ import { router } from '../utils/router.js';
 import { showToast } from '../components/toast.js';
 import { showModal } from '../components/modal.js';
 import { icons } from '../utils/icons.js';
+import { sendInvoiceEmail } from '../services/email-service.js';
+import { saveInvoiceToDrive } from '../services/drive-service.js';
 
 export async function renderViewInvoice(params) {
   const content = document.getElementById('content');
@@ -48,6 +50,8 @@ export async function renderViewInvoice(params) {
             <button class="btn btn-warning" id="view-revert"><span class="btn-icon-inline">${icons.refreshCw}</span> Revertir a Borrador</button>
           `}
           <button class="btn btn-ghost" id="view-pdf"><span class="btn-icon-inline">${icons.download}</span> PDF</button>
+          ${invoice.receptor_email ? `<button class="btn btn-ghost" id="view-email"><span class="btn-icon-inline">${icons.send}</span> Enviar email</button>` : ''}
+          <button class="btn btn-ghost" id="view-drive"><span class="btn-icon-inline">${icons.folder}</span> Guardar en Drive</button>
           ${isDraft ? `<button class="btn btn-danger btn-sm" id="view-delete"><span class="btn-icon-inline">${icons.trash}</span> Eliminar</button>` : ''}
         </div>
       </div>
@@ -160,5 +164,45 @@ export async function renderViewInvoice(params) {
     const { generatePDF } = await import('../services/pdf-service.js');
     await generatePDF(invoice, 'classic');
     showToast('PDF generado', 'success');
+  });
+
+  document.getElementById('view-email')?.addEventListener('click', async () => {
+    const btn = document.getElementById('view-email');
+    btn.disabled = true;
+    btn.innerHTML = `<span class="btn-icon-inline">${icons.send}</span> Enviando...`;
+
+    const result = await sendInvoiceEmail(invoice);
+    if (result.success) {
+      showToast('Email enviado a ' + invoice.receptor_email, 'success');
+    } else {
+      showToast('Error al enviar: ' + result.error, 'error');
+    }
+
+    btn.disabled = false;
+    btn.innerHTML = `<span class="btn-icon-inline">${icons.send}</span> Enviar email`;
+  });
+
+  document.getElementById('view-drive')?.addEventListener('click', async () => {
+    const btn = document.getElementById('view-drive');
+    btn.disabled = true;
+    btn.innerHTML = `<span class="btn-icon-inline">${icons.folder}</span> Guardando...`;
+
+    try {
+      // Generar el PDF como blob
+      const { generatePDFBlob } = await import('../services/pdf-service.js');
+      const pdfBlob = await generatePDFBlob(invoice, 'classic');
+
+      const result = await saveInvoiceToDrive(invoice, pdfBlob);
+      if (result.success) {
+        showToast('Guardado en Drive: ' + result.fileName, 'success');
+      } else {
+        showToast('Error al guardar en Drive: ' + result.error, 'error');
+      }
+    } catch (err) {
+      showToast('Error: ' + err.message, 'error');
+    }
+
+    btn.disabled = false;
+    btn.innerHTML = `<span class="btn-icon-inline">${icons.folder}</span> Guardar en Drive`;
   });
 }

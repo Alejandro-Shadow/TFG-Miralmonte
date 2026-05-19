@@ -196,6 +196,24 @@ class InvoiceService {
     }
   }
 
+  async revertToDraft(id) {
+    try {
+      const { data, error } = await supabase
+        .from('facturas')
+        .update({ estado_verifactu: null })
+        .eq('id', id)
+        .eq('id_emisor', this.emisorId)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('Error reverting invoice:', error);
+      throw error;
+    }
+  }
+
   async cancel(id) {
     try {
       const { data, error } = await supabase

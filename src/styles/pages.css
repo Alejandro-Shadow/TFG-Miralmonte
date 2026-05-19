@@ -329,7 +329,7 @@
 
 .invoice-lines-header {
   display: grid;
-  grid-template-columns: 2fr 1fr 1fr 1fr 1fr auto;
+  grid-template-columns: minmax(150px, 2fr) minmax(70px, 1fr) minmax(90px, 1fr) minmax(80px, 1fr) minmax(90px, 1fr) 36px;
   gap: var(--space-3);
   padding: var(--space-3) var(--space-4);
   background: var(--bg-elevated);
@@ -343,7 +343,7 @@
 
 .invoice-line {
   display: grid;
-  grid-template-columns: 2fr 1fr 1fr 1fr 1fr auto;
+  grid-template-columns: minmax(150px, 2fr) minmax(70px, 1fr) minmax(90px, 1fr) minmax(80px, 1fr) minmax(90px, 1fr) 36px;
   gap: var(--space-3);
   padding: var(--space-3) var(--space-4);
   border: 1px solid var(--border-default);

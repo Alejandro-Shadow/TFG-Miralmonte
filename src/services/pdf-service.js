@@ -34,6 +34,31 @@ export async function generatePDF(invoice, templateId = 'classic') {
   doc.save(`${normalized.number}.pdf`);
 }
 
+export async function generatePDFBlob(invoice, templateId = 'classic') {
+  const jsPDFModule = await import('jspdf');
+  const jsPDF = jsPDFModule.jsPDF || jsPDFModule.default;
+  await import('jspdf-autotable');
+
+  const normalized = normalizeInvoice(invoice);
+  const doc = new jsPDF();
+  const totals = calculateInvoiceTotals(normalized.lines);
+
+  switch (templateId) {
+    case 'modern':
+      renderModernTemplate(doc, normalized, totals);
+      break;
+    case 'minimal':
+      renderMinimalTemplate(doc, normalized, totals);
+      break;
+    case 'classic':
+    default:
+      renderClassicTemplate(doc, normalized, totals);
+      break;
+  }
+
+  return doc.output('blob');
+}
+
 /**
  * Normalize a Supabase invoice object to the format expected by PDF templates
  */
