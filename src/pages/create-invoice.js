@@ -59,7 +59,8 @@ async function renderForm(existingInvoice) {
 
   const existingClienteId = existingInvoice?.id_cliente ? String(existingInvoice.id_cliente) : '';
   const clientesOptions = (clientes || [])
-    .map(c => `<option value="${c.id}" ${String(c.id) === existingClienteId ? 'selected' : ''}>${c.nombre} - ${c.cif_nif_nie || ''}</option>`)
+    .filter(c => c.nombre || c.cif_nif_nie)
+    .map(c => `<option value="${c.id}" ${String(c.id) === existingClienteId ? 'selected' : ''}>${c.nombre || 'Desconocido'} - ${c.cif_nif_nie || ''}</option>`)
     .join('');
 
   content.innerHTML = `
@@ -299,6 +300,7 @@ function renderTemplateSelector() {
       selectedTemplate = opt.dataset.template;
       container.querySelectorAll('.template-option').forEach((o) => o.classList.remove('selected'));
       opt.classList.add('selected');
+      updatePreview();
     });
   });
 }
@@ -306,6 +308,7 @@ function renderTemplateSelector() {
 function updatePreview() {
   const preview = document.getElementById('invoice-preview');
   if (!preview) return;
+  preview.className = `invoice-preview-doc template-${selectedTemplate}`;
 
   const receiverName = document.getElementById('receiver-name')?.value || 'Receptor';
   const receiverNif = document.getElementById('receiver-nif')?.value || '';
@@ -462,6 +465,11 @@ async function saveInvoice(existingInvoice, emit) {
       }
     }
 
+    // Guardar la plantilla en localStorage para que la vista de detalles sepa cuál usar
+    if (savedInvoice && savedInvoice.id) {
+      localStorage.setItem(`invoice_template_${savedInvoice.id}`, selectedTemplate);
+    }
+
     // Envío automático de email si el receptor tiene email
     if (savedInvoice && receptor_email) {
       const emailResult = await sendInvoiceEmail(
@@ -478,7 +486,7 @@ async function saveInvoice(existingInvoice, emit) {
       try {
         const { generatePDFBlob } = await import('../services/pdf-service.js');
         const invoiceWithReceptor = { ...savedInvoice, receptor_nombre, receptor_email };
-        const pdfBlob = await generatePDFBlob(invoiceWithReceptor, 'classic');
+        const pdfBlob = await generatePDFBlob(invoiceWithReceptor, selectedTemplate);
         const driveResult = await saveInvoiceToDrive(invoiceWithReceptor, pdfBlob);
         if (driveResult.success) {
           showToast('Guardado en Google Drive', 'success');

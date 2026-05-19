@@ -33,6 +33,8 @@ export async function renderViewInvoice(params) {
   const subtotal = parseFloat(invoice.subtotal_sin_iva) || 0;
   const iva = parseFloat(invoice.importe_iva) || 0;
 
+  const template = localStorage.getItem(`invoice_template_${invoice.id}`) || 'classic';
+
   content.innerHTML = `
     <div class="fade-in">
       <div class="page-header">
@@ -56,60 +58,57 @@ export async function renderViewInvoice(params) {
         </div>
       </div>
 
-      <div class="card invoice-detail-card">
-        <!-- Header -->
-        <div class="invoice-detail-header">
-          <div>
-            <div class="invoice-detail-number" style="color: var(--primary-400)">FAC-${invoice.numero_factura}</div>
-            <span class="badge ${statusClass}" style="margin-top:var(--space-2);display:inline-block">${statusText}</span>
+      <div class="invoice-preview-doc template-${template}" style="max-width: 800px; margin: 0; position: relative;">
+        <span class="badge ${statusClass}" style="position: absolute; top: var(--space-6); right: var(--space-6);">${statusText}</span>
+        
+        <div class="prev-header">
+          <div class="prev-header-left">
+            <div class="prev-title">FACTURA</div>
+            <div class="prev-number">FAC-${invoice.numero_factura}</div>
           </div>
-          <div style="text-align:right">
-            <p style="color:var(--text-secondary);font-size:var(--text-sm)">
-              <strong>Fecha emisión:</strong> ${formatDate(invoice.fecha_emision)}<br/>
-              <strong>Tipo:</strong> ${invoice.tipo_factura || 'factura'}
-            </p>
-          </div>
-        </div>
-
-        <!-- Receptor -->
-        <div class="invoice-detail-parties">
-          <div class="party-info">
-            <h3>RECEPTOR</h3>
-            <p class="name">${invoice.receptor_nombre || invoice.descripcion_general || '-'}</p>
-            <p>
-              ${invoice.receptor_cif_nif ? `NIF: ${invoice.receptor_cif_nif}<br/>` : ''}
-              ${invoice.receptor_direccion ? `${invoice.receptor_direccion}<br/>` : ''}
-              ${invoice.receptor_email ? invoice.receptor_email : ''}
-            </p>
-          </div>
-          <div class="party-info">
-            <h3>DETALLES</h3>
-            <p>${invoice.descripcion_general || '-'}</p>
+          <div class="prev-header-right" style="padding-top: 30px;">
+            <div class="prev-meta">Fecha: ${formatDate(invoice.fecha_emision)}</div>
+            <div class="prev-meta">Tipo: ${invoice.tipo_factura || 'factura'}</div>
           </div>
         </div>
 
-        <!-- Totals -->
-        <div class="invoice-totals">
-          <div class="total-row">
-            <span>Base Imponible</span>
-            <span>${formatCurrency(subtotal)}</span>
+        <div class="prev-parties">
+          <div class="prev-party">
+            <div class="prev-party-label">EMISOR</div>
+            <div class="prev-party-name">Mi Empresa S.L.</div>
+            <div class="prev-party-detail">B12345678</div>
           </div>
-          <div class="total-row">
-            <span>IVA (${invoice.porcentaje_iva || 21}%)</span>
-            <span>${formatCurrency(iva)}</span>
-          </div>
-          <div class="total-row grand-total">
-            <span>TOTAL</span>
-            <span>${formatCurrency(total)}</span>
+          <div class="prev-party">
+            <div class="prev-party-label">RECEPTOR</div>
+            <div class="prev-party-name">${invoice.receptor_nombre || invoice.descripcion_general || '-'}</div>
+            <div class="prev-party-detail">${invoice.receptor_cif_nif || ''}</div>
+            ${invoice.receptor_direccion ? `<div class="prev-party-detail">${invoice.receptor_direccion}</div>` : ''}
+            ${invoice.receptor_email ? `<div class="prev-party-detail">${invoice.receptor_email}</div>` : ''}
           </div>
         </div>
 
-        ${invoice.notas ? `
-          <div style="margin-top:var(--space-6);padding:var(--space-4);background:var(--bg-elevated);border-radius:var(--radius-md)">
-            <h4 style="font-size:var(--text-sm);color:var(--text-muted);margin-bottom:var(--space-2)">NOTAS</h4>
-            <p style="color:var(--text-secondary);font-size:var(--text-sm)">${invoice.notas}</p>
-          </div>
-        ` : ''}
+        <table class="prev-table">
+          <thead>
+            <tr><th>Descripción</th><th class="num">Uds.</th><th class="num">Precio</th><th class="num">IVA</th><th class="num">Subtotal</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>${invoice.descripcion_general || '-'}</td>
+              <td class="num">1</td>
+              <td class="num">${formatCurrency(subtotal)}</td>
+              <td class="num">${invoice.porcentaje_iva || 21}%</td>
+              <td class="num">${formatCurrency(subtotal)}</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="prev-totals">
+          <div class="prev-total-row"><span>Base Imponible</span><span>${formatCurrency(subtotal)}</span></div>
+          <div class="prev-total-row"><span>IVA</span><span>${formatCurrency(iva)}</span></div>
+          <div class="prev-total-row prev-grand-total"><span>TOTAL</span><span>${formatCurrency(total)}</span></div>
+        </div>
+
+        ${invoice.notas ? `<div class="prev-notes"><strong>Notas:</strong> ${invoice.notas}</div>` : ''}
       </div>
     </div>
   `;
@@ -162,7 +161,7 @@ export async function renderViewInvoice(params) {
 
   document.getElementById('view-pdf')?.addEventListener('click', async () => {
     const { generatePDF } = await import('../services/pdf-service.js');
-    await generatePDF(invoice, 'classic');
+    await generatePDF(invoice, template);
     showToast('PDF generado', 'success');
   });
 
@@ -190,7 +189,7 @@ export async function renderViewInvoice(params) {
     try {
       // Generar el PDF como blob
       const { generatePDFBlob } = await import('../services/pdf-service.js');
-      const pdfBlob = await generatePDFBlob(invoice, 'classic');
+      const pdfBlob = await generatePDFBlob(invoice, template);
 
       const result = await saveInvoiceToDrive(invoice, pdfBlob);
       if (result.success) {

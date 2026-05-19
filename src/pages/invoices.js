@@ -19,7 +19,13 @@ export async function renderInvoices(params) {
 
   // Sync state with params
   const filterMap = { all: 'all', drafts: '', emitted: 'emitida', cancelled: 'anulada' };
-  currentFilter = (params?.filter && params.filter in filterMap) ? filterMap[params.filter] : 'all';
+  
+  if (params?.filter && params.filter in filterMap) {
+    currentFilter = filterMap[params.filter];
+  } else {
+    currentFilter = sessionStorage.getItem('lastInvoiceFilter') ?? 'all';
+  }
+  
   currentSearch = params?.search || '';
 
   content.innerHTML = `
@@ -68,6 +74,7 @@ export async function renderInvoices(params) {
       content.querySelectorAll('.filter-btn').forEach((b) => b.classList.remove('active'));
       btn.classList.add('active');
       currentFilter = btn.dataset.filter;
+      sessionStorage.setItem('lastInvoiceFilter', currentFilter);
       renderTable();
     });
   });

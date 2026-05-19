@@ -312,6 +312,64 @@
   font-style: italic;
 }
 
+/* Modern Template Styles */
+.invoice-preview-doc.template-modern {
+  border-top: 8px solid #6366f1;
+  background: #fafafa;
+}
+.invoice-preview-doc.template-modern .prev-header {
+  border-bottom: none;
+}
+.invoice-preview-doc.template-modern .prev-title {
+  color: #111827;
+  font-size: 22px;
+}
+.invoice-preview-doc.template-modern .prev-table thead {
+  background: #6366f1;
+}
+.invoice-preview-doc.template-modern .prev-party {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-left: 3px solid #6366f1;
+}
+.invoice-preview-doc.template-modern .prev-grand-total {
+  background: #6366f1;
+  color: white;
+  padding: 8px;
+  border-radius: 4px;
+  border-top: none;
+}
+
+/* Minimal Template Styles */
+.invoice-preview-doc.template-minimal {
+  font-family: 'Courier New', Courier, monospace;
+  color: #222;
+}
+.invoice-preview-doc.template-minimal .prev-header {
+  border-bottom: 1px solid #e5e7eb;
+}
+.invoice-preview-doc.template-minimal .prev-title {
+  color: #000;
+  font-weight: 500;
+  letter-spacing: 2px;
+}
+.invoice-preview-doc.template-minimal .prev-table thead {
+  background: transparent;
+  color: #000;
+  border-bottom: 1px solid #000;
+}
+.invoice-preview-doc.template-minimal .prev-table th {
+  color: #000;
+}
+.invoice-preview-doc.template-minimal .prev-party {
+  background: transparent;
+  padding: 0;
+}
+.invoice-preview-doc.template-minimal .prev-grand-total {
+  border-top: 1px solid #000;
+  color: #000;
+}
+
 .form-section {
   margin-bottom: var(--space-8);
 }

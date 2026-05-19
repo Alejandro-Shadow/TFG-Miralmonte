@@ -4,7 +4,11 @@ const SERVICE_ID = import.meta.env.VITE_EMAILJS_SERVICE_ID;
 const TEMPLATE_ID = import.meta.env.VITE_EMAILJS_TEMPLATE_ID;
 const PUBLIC_KEY = import.meta.env.VITE_EMAILJS_PUBLIC_KEY;
 
-emailjs.init(PUBLIC_KEY);
+if (PUBLIC_KEY) {
+  emailjs.init(PUBLIC_KEY);
+} else {
+  console.warn('VITE_EMAILJS_PUBLIC_KEY no está definido. Los emails no se enviarán.');
+}
 
 export async function sendInvoiceEmail(invoice, lines = []) {
   const toEmail = invoice.receptor_email;
