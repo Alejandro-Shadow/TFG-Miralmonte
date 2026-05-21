@@ -1,5 +1,5 @@
 // ============================================
-// FacturApp - Helpers / Utilities
+// Automalize - Helpers / Utilities
 // ============================================
 
 /**

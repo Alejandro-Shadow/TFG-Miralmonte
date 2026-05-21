@@ -1,5 +1,5 @@
 // ============================================
-// FacturApp - Toast Notifications
+// Automalize - Toast Notifications
 // ============================================
 
 import { icons } from '../utils/icons.js';

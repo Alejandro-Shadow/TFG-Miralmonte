@@ -1,5 +1,5 @@
 // ============================================
-// FacturApp - Main Entry Point
+// Automalize - Main Entry Point
 // ============================================
 
 import { router } from './utils/router.js';
@@ -15,6 +15,7 @@ import { renderInvoices } from './pages/invoices.js';
 import { renderCreateInvoice, renderEditInvoice } from './pages/create-invoice.js';
 import { renderViewInvoice } from './pages/view-invoice.js';
 import { renderScanQR } from './pages/scan-qr.js';
+import { renderVoiceInvoice } from './pages/voice-invoice.js';
 
 async function initApp() {
   const session = await authService.getSession();
@@ -75,6 +76,10 @@ async function initApp() {
     .on('scan-qr', (params) => {
       updateNavbarTitle('Escanear QR');
       renderScanQR(params);
+    })
+    .on('voice-invoice', (params) => {
+      updateNavbarTitle('Facturación por Voz');
+      renderVoiceInvoice(params);
     });
 
   router.start();

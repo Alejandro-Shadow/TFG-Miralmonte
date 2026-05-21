@@ -1,5 +1,5 @@
 // ============================================
-// FacturApp - Export Service (XML, Excel, CSV)
+// Automalize - Export Service (XML, Excel, CSV)
 // ============================================
 
 import { downloadString, downloadBlob, formatDate, calculateInvoiceTotals } from '../utils/helpers.js';

@@ -1,5 +1,5 @@
 // ============================================
-// FacturApp - Modal Component
+// Automalize - Modal Component
 // ============================================
 
 import { icons } from '../utils/icons.js';
@@ -7,11 +7,14 @@ import { icons } from '../utils/icons.js';
 /**
  * Show a confirmation modal
  */
-export function showModal({ title, message, confirmText = 'Confirmar', cancelText = 'Cancelar', onConfirm, onCancel, type = 'default' }) {
+export function showModal({ title, message, html, confirmText = 'Confirmar', cancelText = 'Cancelar', onConfirm, onCancel, type = 'default' }) {
   const overlay = document.getElementById('modal-overlay');
   overlay.classList.remove('hidden');
 
   const confirmClass = type === 'danger' ? 'btn-danger' : 'btn-primary';
+  const body = html
+    ? `<div style="margin-bottom:var(--space-4)">${html}</div>`
+    : `<p style="color: var(--text-secondary); line-height: 1.6;">${message}</p>`;
 
   overlay.innerHTML = `
     <div class="modal fade-in">
@@ -19,7 +22,7 @@ export function showModal({ title, message, confirmText = 'Confirmar', cancelTex
         <h2>${title}</h2>
         <button class="btn-icon modal-close-btn" id="modal-close">${icons.x}</button>
       </div>
-      <p style="color: var(--text-secondary); line-height: 1.6;">${message}</p>
+      ${body}
       <div class="modal-footer">
         <button class="btn btn-ghost" id="modal-cancel">${cancelText}</button>
         <button class="btn ${confirmClass}" id="modal-confirm">${confirmText}</button>

@@ -1,5 +1,5 @@
 // ============================================
-// FacturApp - PDF Service (jsPDF + templates)
+// Automalize - PDF Service (jsPDF + templates)
 // ============================================
 
 import { calculateInvoiceTotals, formatDate, formatCurrency, downloadBlob } from '../utils/helpers.js';
@@ -99,7 +99,57 @@ function normalizeInvoice(inv) {
       },
     ],
     notes: inv.notas || '',
+    verifactuQr:  inv.verifactu_qr  || null,
+    verifactuUrl: inv.verifactu_url || null,
   };
+}
+
+// Añade el bloque QR de Verifactu al pie del documento
+function renderVerifactuBlock(doc, invoice, startY) {
+  if (!invoice.verifactuQr) return;
+
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const qrSize = 28;
+  const margin = 20;
+
+  // Si no hay espacio suficiente en la página actual, añadir nueva página
+  let y = startY + 14;
+  if (y + qrSize + 16 > pageHeight - 10) {
+    doc.addPage();
+    y = 20;
+  }
+
+  // Línea separadora
+  doc.setDrawColor(200, 200, 200);
+  doc.setLineWidth(0.4);
+  doc.line(margin, y, pageWidth - margin, y);
+
+  y += 8;
+
+  // QR image
+  doc.addImage(`data:image/png;base64,${invoice.verifactuQr}`, 'PNG', margin, y, qrSize, qrSize);
+
+  // Texto al lado del QR
+  const textX = margin + qrSize + 6;
+  doc.setFontSize(7);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(80, 80, 80);
+  doc.text('Factura verificable en la AEAT — Verifactu', textX, y + 5);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(120, 120, 120);
+  doc.text('Escanea el código QR para verificar esta factura', textX, y + 11);
+  doc.text('en la sede electrónica de la Agencia Tributaria.', textX, y + 16);
+
+  if (invoice.verifactuUrl) {
+    doc.setFontSize(6);
+    doc.setTextColor(99, 102, 241);
+    const urlText = invoice.verifactuUrl.length > 80
+      ? invoice.verifactuUrl.substring(0, 77) + '...'
+      : invoice.verifactuUrl;
+    doc.text(urlText, textX, y + 23);
+  }
 }
 
 // ======================
@@ -227,6 +277,7 @@ function renderClassicTemplate(doc, invoice, totals) {
   doc.text(formatCurrency(totals.total), pageWidth - 20, finalY + 19, { align: 'right' });
 
   // Notes
+  let notesEndY = finalY + 19;
   if (invoice.notes) {
     const notesY = finalY + 35;
     doc.setFontSize(9);
@@ -236,7 +287,10 @@ function renderClassicTemplate(doc, invoice, totals) {
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(80, 80, 80);
     doc.text(invoice.notes, 20, notesY + 6, { maxWidth: pageWidth - 40 });
+    notesEndY = notesY + 12;
   }
+
+  renderVerifactuBlock(doc, invoice, notesEndY);
 }
 
 // ======================
@@ -369,13 +423,17 @@ function renderModernTemplate(doc, invoice, totals) {
   doc.text(formatCurrency(totals.total), pageWidth - 20, finalY + 28, { align: 'right' });
 
   // Notes
+  let modernNotesEndY = finalY + 38;
   if (invoice.notes) {
     const notesY = finalY + 50;
     doc.setFontSize(9);
     doc.setFont('helvetica', 'italic');
     doc.setTextColor(120, 120, 120);
     doc.text(`Notas: ${invoice.notes}`, 15, notesY, { maxWidth: pageWidth - 30 });
+    modernNotesEndY = notesY + 10;
   }
+
+  renderVerifactuBlock(doc, invoice, modernNotesEndY);
 }
 
 // ======================
@@ -479,10 +537,14 @@ function renderMinimalTemplate(doc, invoice, totals) {
   doc.text(formatCurrency(totals.total), pageWidth - 20, finalY + 19, { align: 'right' });
 
   // Notes
+  let minimalNotesEndY = finalY + 19;
   if (invoice.notes) {
     doc.setFontSize(8);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(160, 160, 160);
     doc.text(invoice.notes, 20, finalY + 35, { maxWidth: pageWidth - 40 });
+    minimalNotesEndY = finalY + 42;
   }
+
+  renderVerifactuBlock(doc, invoice, minimalNotesEndY);
 }

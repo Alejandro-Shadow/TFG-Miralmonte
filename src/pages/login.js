@@ -23,7 +23,7 @@ export function renderLogin() {
       <div style="width:100%;max-width:400px;padding:var(--space-4)">
         <div style="text-align:center;margin-bottom:32px">
           <div class="login-logo-icon">F</div>
-          <h1 style="font-size:var(--text-2xl);font-weight:800;color:var(--text-primary)">FacturApp</h1>
+          <h1 style="font-size:var(--text-2xl);font-weight:800;color:var(--text-primary)">Automalize</h1>
           <p style="color:var(--text-muted);margin-top:4px">Gestión de facturas profesional</p>
         </div>
         <div class="card" style="padding:32px">

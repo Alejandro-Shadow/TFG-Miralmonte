@@ -1,6 +1,6 @@
 const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 const SCOPES = 'https://www.googleapis.com/auth/drive.file';
-const ROOT_FOLDER_NAME = 'FacturApp';
+const ROOT_FOLDER_NAME = 'Automalize';
 
 let tokenClient = null;
 let accessToken = null;
@@ -109,7 +109,7 @@ export async function saveInvoiceToDrive(invoice, pdfBlob) {
     const mes = fecha.substring(0, 7); // "2026-05"
     const filename = `FAC-${invoice.numero_factura}.pdf`;
 
-    // Estructura: FacturApp / Cliente / YYYY-MM /
+    // Estructura: Automalize / Cliente / YYYY-MM /
     const rootId = await findOrCreateFolder(ROOT_FOLDER_NAME);
     const clientId = await findOrCreateFolder(clientName, rootId);
     const monthId = await findOrCreateFolder(mes, clientId);

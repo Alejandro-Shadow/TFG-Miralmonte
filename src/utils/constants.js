@@ -1,8 +1,8 @@
 // ============================================
-// FacturApp - Constants & Configuration
+// Automalize - Constants & Configuration
 // ============================================
 
-export const APP_NAME = 'FacturApp';
+export const APP_NAME = 'Automalize';
 
 export const ROUTES = {
   DASHBOARD: 'dashboard',

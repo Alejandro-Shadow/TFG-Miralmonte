@@ -1,5 +1,5 @@
 // ============================================
-// FacturApp - Ticket/Invoice Text Parser
+// Automalize - Ticket/Invoice Text Parser
 // Extracts structured data from OCR/PDF text
 // ============================================
 

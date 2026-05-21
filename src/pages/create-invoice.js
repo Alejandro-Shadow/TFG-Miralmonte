@@ -1,8 +1,9 @@
 // ============================================
-// FacturApp - Create Invoice Page
+// Automalize - Create Invoice Page
 // ============================================
 
 import { invoiceService } from '../services/invoice-service.js';
+import { verifactuService } from '../services/verifactu-service.js';
 import { supabase } from '../utils/supabase.js';
 import { sendInvoiceEmail } from '../services/email-service.js';
 import { saveInvoiceToDrive } from '../services/drive-service.js';
@@ -10,6 +11,7 @@ import { IVA_RATES, PDF_TEMPLATES, INVOICE_STATUS } from '../utils/constants.js'
 import { createEmptyLine, calculateInvoiceTotals, formatCurrency, toInputDate } from '../utils/helpers.js';
 import { router } from '../utils/router.js';
 import { showToast } from '../components/toast.js';
+import { showModal } from '../components/modal.js';
 import { icons } from '../utils/icons.js';
 
 let invoiceLines = [];
@@ -159,6 +161,38 @@ async function renderForm(existingInvoice) {
               </div>
             </div>
 
+            <!-- Opciones de emisión -->
+            <div class="form-section card">
+              <h3 class="form-section-title"><span class="section-icon">${icons.send}</span> Opciones al emitir</h3>
+              <div style="display:flex;flex-direction:column;gap:var(--space-3)">
+
+                <label style="display:flex;align-items:flex-start;gap:var(--space-3);padding:var(--space-4);
+                              border:1px solid var(--border-default);border-radius:var(--radius-md);cursor:pointer">
+                  <input type="checkbox" id="opt-verifactu" checked
+                         style="margin-top:2px;width:18px;height:18px;accent-color:var(--primary-500);cursor:pointer;flex-shrink:0" />
+                  <div>
+                    <div style="font-weight:600;font-size:var(--text-sm)">Enviar a Verifactu (AEAT)</div>
+                    <div style="color:var(--text-muted);font-size:var(--text-xs);margin-top:2px">
+                      Registra la factura en la Agencia Tributaria al emitir.
+                    </div>
+                  </div>
+                </label>
+
+                <label style="display:flex;align-items:flex-start;gap:var(--space-3);padding:var(--space-4);
+                              border:1px solid var(--border-default);border-radius:var(--radius-md);cursor:pointer">
+                  <input type="checkbox" id="opt-email"
+                         style="margin-top:2px;width:18px;height:18px;accent-color:var(--primary-500);cursor:pointer;flex-shrink:0" />
+                  <div>
+                    <div style="font-weight:600;font-size:var(--text-sm)">Enviar email al cliente</div>
+                    <div style="color:var(--text-muted);font-size:var(--text-xs);margin-top:2px">
+                      Envía la factura por email al emitir (si el cliente tiene email).
+                    </div>
+                  </div>
+                </label>
+
+              </div>
+            </div>
+
             <!-- Actions -->
             <div class="form-footer">
               <button type="button" class="btn btn-ghost" id="form-cancel">Cancelar</button>
@@ -166,7 +200,7 @@ async function renderForm(existingInvoice) {
                 <span class="btn-icon-inline">${icons.save}</span> Guardar Borrador
               </button>
               <button type="button" class="btn btn-accent" id="form-emit">
-                <span class="btn-icon-inline">${icons.send}</span> Emitir a Verifactu
+                <span class="btn-icon-inline">${icons.send}</span> Emitir Factura
               </button>
             </div>
           </form>
@@ -213,8 +247,12 @@ async function renderForm(existingInvoice) {
     updatePreview();
   });
 
-  document.getElementById('form-draft').addEventListener('click', () => saveInvoice(existingInvoice, false));
-  document.getElementById('form-emit').addEventListener('click', () => saveInvoice(existingInvoice, true));
+  document.getElementById('form-draft').addEventListener('click', () => saveInvoice(existingInvoice, {}));
+  document.getElementById('form-emit').addEventListener('click', () => {
+    const useVerifactu = document.getElementById('opt-verifactu')?.checked ?? false;
+    const sendEmail    = document.getElementById('opt-email')?.checked    ?? false;
+    saveInvoice(existingInvoice, { useVerifactu, sendEmail });
+  });
 
   // Listen for form changes to update preview
   document.getElementById('invoice-form').addEventListener('input', () => {
@@ -382,7 +420,9 @@ function updatePreview() {
   `;
 }
 
-async function saveInvoice(existingInvoice, emit) {
+async function saveInvoice(existingInvoice, opts = {}) {
+  const { useVerifactu = false, sendEmail = false } = opts;
+  const emit = useVerifactu; // keep compat alias
   const fecha_emision = document.getElementById('inv-date').value;
   const tipo_factura = document.getElementById('inv-tipo').value;
   const receptor_nombre = document.getElementById('receiver-name').value;
@@ -449,50 +489,42 @@ async function saveInvoice(existingInvoice, emit) {
     let savedInvoice;
     if (existingInvoice) {
       savedInvoice = await invoiceService.update(existingInvoice.id, invoiceData);
-      if (emit) {
-        await invoiceService.emitToVerifactu(existingInvoice.id);
-        showToast('Factura actualizada y emitida a Verifactu', 'success');
-      } else {
-        showToast('Factura actualizada', 'success');
-      }
     } else {
       savedInvoice = await invoiceService.create(invoiceData);
-      if (emit && savedInvoice) {
-        await invoiceService.emitToVerifactu(savedInvoice.id);
-        showToast('Factura creada y emitida a Verifactu', 'success');
-      } else {
-        showToast('Borrador guardado', 'success');
-      }
     }
 
-    // Guardar la plantilla en localStorage para que la vista de detalles sepa cuál usar
-    if (savedInvoice && savedInvoice.id) {
+    if (savedInvoice?.id) {
       localStorage.setItem(`invoice_template_${savedInvoice.id}`, selectedTemplate);
     }
 
-    // Envío automático de email si el receptor tiene email
-    if (savedInvoice && receptor_email) {
+    // Emitir
+    if (emit && savedInvoice) {
+      if (useVerifactu) {
+        const invoiceForApi = { ...savedInvoice, receptor_nombre, receptor_cif_nif: receptor_nif, receptor_email };
+        const createRes = await verifactuService.create(invoiceForApi);
+        const uuid = createRes.uuid || createRes.id;
+        const resolvedQr = createRes.resolvedQr || null;
+        if (uuid) {
+          const statusRes = await verifactuService.pollStatus(uuid, () => {});
+          await invoiceService.emitToVerifactu(savedInvoice.id, uuid, statusRes.resolvedUrl, resolvedQr);
+        }
+        showToast('Factura emitida y registrada en la AEAT', 'success');
+      } else {
+        await invoiceService.emitToVerifactu(savedInvoice.id, null, null);
+        showToast('Factura emitida (sin Verifactu)', 'success');
+      }
+    } else {
+      showToast(existingInvoice ? 'Factura actualizada' : 'Borrador guardado', 'success');
+    }
+
+    // Enviar email si el usuario lo eligió
+    if (sendEmail && savedInvoice && receptor_email) {
       const emailResult = await sendInvoiceEmail(
         { ...savedInvoice, receptor_nombre, receptor_email },
         invoiceLines
       );
       if (emailResult.success) {
-        showToast('Email enviado al receptor', 'success');
-      }
-    }
-
-    // Guardar automáticamente en Google Drive
-    if (savedInvoice) {
-      try {
-        const { generatePDFBlob } = await import('../services/pdf-service.js');
-        const invoiceWithReceptor = { ...savedInvoice, receptor_nombre, receptor_email };
-        const pdfBlob = await generatePDFBlob(invoiceWithReceptor, selectedTemplate);
-        const driveResult = await saveInvoiceToDrive(invoiceWithReceptor, pdfBlob);
-        if (driveResult.success) {
-          showToast('Guardado en Google Drive', 'success');
-        }
-      } catch (err) {
-        console.error('Error guardando en Drive:', err);
+        showToast('Email enviado a ' + receptor_email, 'success');
       }
     }
 

@@ -1,5 +1,5 @@
 // ============================================
-// FacturApp - Sidebar Component
+// Automalize - Sidebar Component
 // ============================================
 
 import { router } from '../utils/router.js';
@@ -14,7 +14,7 @@ export function renderSidebar() {
     <div class="sidebar-header">
       <div class="sidebar-logo">
         <div class="sidebar-logo-icon">F</div>
-        <span class="sidebar-logo-text">FacturApp</span>
+        <span class="sidebar-logo-text">Automalize</span>
       </div>
     </div>
     <nav class="sidebar-nav">
@@ -36,6 +36,10 @@ export function renderSidebar() {
       <a class="sidebar-link" data-route="scan-qr" id="nav-scan">
         <span class="icon">${icons.scan}</span>
         <span>Escanear QR</span>
+      </a>
+      <a class="sidebar-link" data-route="voice-invoice" id="nav-voice">
+        <span class="icon">${icons.mic}</span>
+        <span>Factura por Voz</span>
       </a>
     </nav>
     <div class="sidebar-footer">

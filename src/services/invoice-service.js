@@ -1,5 +1,5 @@
 // ============================================
-// FacturApp - Invoice Service (CRUD with Supabase)
+// Automalize - Invoice Service (CRUD with Supabase)
 // ============================================
 
 import { supabase } from '../utils/supabase.js';
@@ -154,13 +154,16 @@ class InvoiceService {
     }
   }
 
-  async emitToVerifactu(id) {
+  async emitToVerifactu(id, verifactuUuid, verifactuUrl, verifactuQr) {
     try {
       const { data, error } = await supabase
         .from('facturas')
         .update({
           estado_verifactu: 'emitida',
           fecha_creacion_registro: new Date().toISOString(),
+          verifactu_uuid: verifactuUuid || null,
+          verifactu_url: verifactuUrl || null,
+          verifactu_qr: verifactuQr || null,
         })
         .eq('id', id)
         .eq('id_emisor', this.emisorId)

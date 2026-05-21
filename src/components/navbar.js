@@ -1,5 +1,5 @@
 // ============================================
-// FacturApp - Navbar Component
+// Automalize - Navbar Component
 // ============================================
 
 import { icons } from '../utils/icons.js';
@@ -11,6 +11,7 @@ const PAGE_TITLES = {
   'edit-invoice': 'Editar Factura',
   'view-invoice': 'Detalle de Factura',
   'scan-qr': 'Escanear QR',
+  'voice-invoice': 'Facturación por Voz',
 };
 
 export function renderNavbar() {
@@ -66,6 +67,6 @@ export function renderNavbar() {
 export function updateNavbarTitle(route) {
   const title = document.getElementById('navbar-page-title');
   if (title) {
-    title.textContent = PAGE_TITLES[route] || 'FacturApp';
+    title.textContent = PAGE_TITLES[route] || 'Automalize';
   }
 }

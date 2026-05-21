@@ -1,5 +1,5 @@
 // ============================================
-// FacturApp - Scan & Import Page
+// Automalize - Scan & Import Page
 // Supports: QR codes, Ticket photos (OCR), PDFs
 // ============================================
 

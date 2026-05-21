@@ -1,5 +1,5 @@
 // ============================================
-// FacturApp - Invoices List Page
+// Automalize - Invoices List Page
 // ============================================
 
 import { invoiceService } from '../services/invoice-service.js';
@@ -148,11 +148,20 @@ async function renderTable() {
     return;
   }
 
+  const VERIFACTU_EMITTED = ['emitida', 'Correcto', 'Duplicado', 'correcto', 'duplicado'];
   const rows = invoices.map((inv) => {
     const total = parseFloat(inv.total_factura) || 0;
-    const statusClass = inv.estado_verifactu === 'emitida' ? 'badge-emitted' : inv.estado_pago === 'anulada' ? 'badge-cancelled' : 'badge-draft';
-    const statusText = inv.estado_verifactu === 'emitida' ? 'Emitida' : inv.estado_pago === 'anulada' ? 'Anulada' : 'Borrador';
-    const canEdit = !inv.estado_verifactu;
+    const isEmitida   = VERIFACTU_EMITTED.includes(inv.estado_verifactu);
+    const sentToAEAT  = !!inv.verifactu_uuid || ['Correcto', 'Duplicado', 'correcto', 'duplicado'].includes(inv.estado_verifactu);
+    const statusClass = isEmitida ? 'badge-emitted' : inv.estado_pago === 'anulada' ? 'badge-cancelled' : 'badge-draft';
+    const statusText  = isEmitida ? 'Emitida' : inv.estado_pago === 'anulada' ? 'Anulada' : 'Borrador';
+    const canEdit     = !inv.estado_verifactu;
+
+    const verifactuBadge = isEmitida
+      ? sentToAEAT
+        ? `<span title="Registrada en Verifactu (AEAT)" style="color:var(--success-400);display:inline-flex">${icons.checkCircle}</span>`
+        : `<span title="Emitida sin Verifactu" style="color:var(--text-muted);display:inline-flex">${icons.xCircle}</span>`
+      : '';
 
     return `
       <tr>
@@ -160,7 +169,12 @@ async function renderTable() {
         <td>${inv.receptor_nombre || '-'}</td>
         <td>${formatDate(inv.fecha_emision)}</td>
         <td>${formatDate(inv.fecha_vencimiento || inv.fecha_emision)}</td>
-        <td><span class="badge ${statusClass}">${statusText}</span></td>
+        <td>
+          <div style="display:flex;align-items:center;gap:var(--space-2)">
+            <span class="badge ${statusClass}">${statusText}</span>
+            ${verifactuBadge}
+          </div>
+        </td>
         <td style="text-align:right"><strong>${formatCurrency(total)}</strong></td>
         <td>
           <div class="table-actions">

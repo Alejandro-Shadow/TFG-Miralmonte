@@ -1,5 +1,5 @@
 // ============================================
-// FacturApp - Dashboard Page
+// Automalize - Dashboard Page
 // ============================================
 
 import { invoiceService } from '../services/invoice-service.js';
@@ -317,7 +317,7 @@ async function exportAnalyticsReport(cashFlow, pending, avg, projected) {
       doc.addImage(clientImg, 'PNG', 14, 25, 160, 100);
     }
     
-    doc.save('Informe_Analitica_FacturApp.pdf');
+    doc.save('Informe_Analitica_Automalize.pdf');
     showToast('Informe exportado con éxito', 'success');
   } catch (error) {
     console.error('Error exporting report:', error);
