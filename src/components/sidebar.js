@@ -34,8 +34,8 @@ export function renderSidebar() {
         <span>Nueva Factura</span>
       </a>
       <a class="sidebar-link" data-route="scan-qr" id="nav-scan">
-        <span class="icon">${icons.scan}</span>
-        <span>Escanear QR</span>
+        <span class="icon">${icons.camera}</span>
+        <span>Importar Factura</span>
       </a>
       <a class="sidebar-link" data-route="voice-invoice" id="nav-voice">
         <span class="icon">${icons.mic}</span>

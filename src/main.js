@@ -74,7 +74,7 @@ async function initApp() {
       renderViewInvoice(params);
     })
     .on('scan-qr', (params) => {
-      updateNavbarTitle('Escanear QR');
+      updateNavbarTitle('scan-qr');
       renderScanQR(params);
     })
     .on('voice-invoice', (params) => {

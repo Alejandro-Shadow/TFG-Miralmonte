@@ -61,8 +61,8 @@ async function renderForm(existingInvoice) {
 
   const existingClienteId = existingInvoice?.id_cliente ? String(existingInvoice.id_cliente) : '';
   const clientesOptions = (clientes || [])
-    .filter(c => c.nombre || c.cif_nif_nie)
-    .map(c => `<option value="${c.id}" ${String(c.id) === existingClienteId ? 'selected' : ''}>${c.nombre || 'Desconocido'} - ${c.cif_nif_nie || ''}</option>`)
+    .filter(c => c && c.nombre && c.nombre !== 'null' && c.nombre.trim() !== '')
+    .map(c => `<option value="${c.id}" ${String(c.id) === existingClienteId ? 'selected' : ''}>${c.nombre}${c.cif_nif_nie ? ' - ' + c.cif_nif_nie : ''}</option>`)
     .join('');
 
   content.innerHTML = `

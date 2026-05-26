@@ -10,8 +10,17 @@ const PAGE_TITLES = {
   'create-invoice': 'Nueva Factura',
   'edit-invoice': 'Editar Factura',
   'view-invoice': 'Detalle de Factura',
-  'scan-qr': 'Escanear QR',
+  'scan-qr': 'Importar Factura',
   'voice-invoice': 'Facturación por Voz',
+  // Robustness fallbacks
+  'Dashboard': 'Dashboard',
+  'Facturas': 'Facturas',
+  'Nueva Factura': 'Nueva Factura',
+  'Editar Factura': 'Editar Factura',
+  'Ver Factura': 'Detalle de Factura',
+  'Escanear QR': 'Importar Factura',
+  'Importar Factura': 'Importar Factura',
+  'Facturación por Voz': 'Facturación por Voz',
 };
 
 export function renderNavbar() {

@@ -16,7 +16,10 @@ export async function showExportOptionsModal() {
 
     if (clientsError) throw clientsError;
 
-  const clientOptions = (clients || []).map(c => `<option value="${c.id}">${c.nombre}</option>`).join('');
+  const clientOptions = (clients || [])
+    .filter(c => c && c.nombre && c.nombre !== 'null' && c.nombre.trim() !== '')
+    .map(c => `<option value="${c.id}">${c.nombre}</option>`)
+    .join('');
 
   const modalContent = `
     <div class="export-modal-form">

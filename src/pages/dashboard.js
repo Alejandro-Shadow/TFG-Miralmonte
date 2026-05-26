@@ -136,7 +136,7 @@ export async function renderDashboard() {
         </h2>
         <div style="display: flex; gap: var(--space-3); flex-wrap: wrap;">
           <button class="btn btn-primary" id="dash-quick-create"><span class="btn-icon-inline">${icons.plus}</span> Crear Factura</button>
-          <button class="btn btn-accent" id="dash-quick-scan"><span class="btn-icon-inline">${icons.scan}</span> Escanear QR</button>
+          <button class="btn btn-accent" id="dash-quick-scan"><span class="btn-icon-inline">${icons.camera}</span> Importar Factura</button>
           <button class="btn btn-ghost" id="dash-quick-export"><span class="btn-icon-inline">${icons.download}</span> Exportar Todo</button>
         </div>
       </div>
