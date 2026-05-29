@@ -114,7 +114,7 @@ export async function renderViewInvoice(params) {
         <p style="font-size:var(--text-xs);color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:var(--space-4)">Acciones</p>
         <div style="display:flex;flex-wrap:wrap;gap:var(--space-3)">
 
-          ${isDraft ? `
+          ${(isDraft && !isAnulada) ? `
             <button class="btn btn-accent" id="btn-emit" style="font-size:var(--text-base);padding:var(--space-3) var(--space-6)">
               <span class="btn-icon-inline">${icons.send}</span> Emitir Factura
             </button>
@@ -123,7 +123,7 @@ export async function renderViewInvoice(params) {
             </button>
           ` : ''}
 
-          ${isEmitida ? `
+          ${(isEmitida || isAnulada) ? `
             <button class="btn btn-warning" id="btn-revert">
               <span class="btn-icon-inline">${icons.refreshCw}</span> Revertir a Borrador
             </button>
@@ -143,11 +143,18 @@ export async function renderViewInvoice(params) {
             <span class="btn-icon-inline">${icons.folder}</span> Guardar en Drive
           </button>
 
-          ${isDraft ? `
-            <button class="btn btn-danger btn-sm" id="btn-delete" style="margin-left:auto">
-              <span class="btn-icon-inline">${icons.trash}</span> Eliminar
-            </button>
-          ` : ''}
+          <div style="margin-left:auto;display:flex;gap:var(--space-2)">
+            ${!isAnulada && !isDraft ? `
+              <button class="btn btn-danger btn-sm" id="btn-cancel-invoice">
+                <span class="btn-icon-inline">${icons.xCircle}</span> Anular
+              </button>
+            ` : ''}
+            ${(isDraft || isAnulada) ? `
+              <button class="btn btn-danger btn-sm" id="btn-delete">
+                <span class="btn-icon-inline">${icons.trash}</span> Eliminar
+              </button>
+            ` : ''}
+          </div>
         </div>
       </div>
 
@@ -224,6 +231,21 @@ export async function renderViewInvoice(params) {
         await invoiceService.delete(invoice.id);
         showToast('Factura eliminada', 'success');
         router.navigate('invoices');
+      },
+    });
+  });
+
+  // ── Anular ───────────────────────────────────────────────────────────────
+  document.getElementById('btn-cancel-invoice')?.addEventListener('click', () => {
+    showModal({
+      title: 'Anular Factura',
+      message: '¿Estás seguro de anular esta factura? Quedará invalidada para su cobro pero mantendrá su número para el registro contable.',
+      confirmText: 'Anular',
+      type: 'danger',
+      onConfirm: async () => {
+        await invoiceService.cancel(invoice.id);
+        showToast('Factura anulada', 'success');
+        renderViewInvoice(params);
       },
     });
   });

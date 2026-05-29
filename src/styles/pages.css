@@ -66,6 +66,7 @@
 .filter-group {
   display: flex;
   gap: var(--space-2);
+  flex-wrap: wrap;
 }
 
 .filter-btn {
@@ -97,9 +98,10 @@
   gap: var(--space-2);
   padding: var(--space-2) var(--space-4);
   background: var(--bg-input);
-  border: 1px solid var(--border-default);
   border-radius: var(--radius-full);
-  min-width: 260px;
+  transition: all var(--transition-fast);
+  min-width: 200px;
+  flex: 1;
   transition: all var(--transition-fast);
 }
 
@@ -281,7 +283,8 @@
 .prev-total-row {
   display: flex;
   justify-content: space-between;
-  width: 180px;
+  width: 100%;
+  max-width: 180px;
   font-size: 10px;
   color: #555;
 }
@@ -456,6 +459,7 @@
   margin-top: var(--space-8);
   padding-top: var(--space-6);
   border-top: 1px solid var(--border-default);
+  flex-wrap: wrap;
 }
 
 /* --- View Invoice --- */
@@ -770,10 +774,58 @@
 }
 
 @media (max-width: 768px) {
-  .invoice-lines-header,
-  .invoice-line {
+  .invoice-split-layout {
     grid-template-columns: 1fr;
-    gap: var(--space-2);
+  }
+  .search-input-wrapper {
+    min-width: 100%;
+  }
+  .prev-header {
+    flex-direction: column;
+    gap: var(--space-3);
+  }
+  .prev-header > div {
+    text-align: left !important;
+  }
+  .prev-parties {
+    grid-template-columns: 1fr;
+  }
+  .invoice-lines-header {
+    display: none;
+  }
+  .invoice-line {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    padding: var(--space-4);
+    background: var(--bg-surface);
+    border-radius: var(--radius-md);
+    margin-bottom: var(--space-4);
+    border: 1px solid var(--border-default);
+    position: relative;
+  }
+  .invoice-line::before {
+    content: "Línea de Factura";
+    font-size: var(--text-xs);
+    font-weight: 700;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-bottom: 1px solid var(--border-default);
+    padding-bottom: var(--space-2);
+    margin-bottom: var(--space-2);
+  }
+  .line-subtotal {
+    text-align: left !important;
+  }
+  .line-subtotal::before {
+    content: "Subtotal: ";
+    font-weight: normal;
+    color: var(--text-secondary);
+  }
+  .invoice-line .line-remove {
+    align-self: flex-end;
+    margin-top: -30px;
   }
   .invoice-detail-parties {
     grid-template-columns: 1fr;

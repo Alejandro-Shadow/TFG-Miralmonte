@@ -17,10 +17,32 @@ import { icons } from '../utils/icons.js';
 let invoiceLines = [];
 let selectedTemplate = 'classic';
 
-export function renderCreateInvoice() {
+export function renderCreateInvoice(params) {
   invoiceLines = [createEmptyLine()];
   selectedTemplate = 'classic';
-  renderForm(null);
+  let scanData = null;
+
+  if (params?.fromScan) {
+    try {
+      const scanStr = sessionStorage.getItem('scannedInvoiceData');
+      if (scanStr) {
+        scanData = JSON.parse(scanStr);
+        if (scanData.items && scanData.items.length > 0) {
+          invoiceLines = scanData.items.map(item => ({
+            id: createEmptyLine().id,
+            description: item.description || '',
+            quantity: item.quantity || 1,
+            price: item.price || 0,
+            ivaRate: item.ivaRate || scanData.ivaRate || 21,
+          }));
+        }
+      }
+    } catch (e) {
+      console.error('Error parsing scanned data', e);
+    }
+  }
+
+  renderForm(null, scanData);
 }
 
 export async function renderEditInvoice(params) {
@@ -37,19 +59,31 @@ export async function renderEditInvoice(params) {
     return;
   }
 
-  // Reconstruct lines from the saved invoice data
-  invoiceLines = [{
-    id: createEmptyLine().id,
-    description: invoice.descripcion_general || '',
-    quantity: 1,
-    price: parseFloat(invoice.subtotal_sin_iva) || 0,
-    ivaRate: parseFloat(invoice.porcentaje_iva) || 21,
-  }];
-  selectedTemplate = 'classic';
+  // Intentar cargar líneas guardadas de localStorage para no perder el detalle
+  const savedLinesStr = localStorage.getItem(`invoice_lines_${invoice.id}`);
+  if (savedLinesStr) {
+    try {
+      invoiceLines = JSON.parse(savedLinesStr);
+    } catch(e) {
+      invoiceLines = null;
+    }
+  }
+
+  if (!invoiceLines || invoiceLines.length === 0) {
+    invoiceLines = [{
+      id: createEmptyLine().id,
+      description: invoice.descripcion_general || '',
+      quantity: 1,
+      price: parseFloat(invoice.subtotal_sin_iva) || 0,
+      ivaRate: parseFloat(invoice.porcentaje_iva) || 21,
+    }];
+  }
+
+  selectedTemplate = localStorage.getItem(`invoice_template_${invoice.id}`) || 'classic';
   renderForm(invoice);
 }
 
-async function renderForm(existingInvoice) {
+async function renderForm(existingInvoice, scanData = null) {
   const content = document.getElementById('content');
   const isEdit = !!existingInvoice;
 
@@ -81,15 +115,15 @@ async function renderForm(existingInvoice) {
               <h3 class="form-section-title"><span class="section-icon">${icons.clipboard}</span> Datos de la Factura</h3>
               <div class="form-row">
                 <div class="form-group">
-                  <label class="form-label">Fecha de Emisión *</label>
-                  <input type="date" class="form-input" id="inv-date" value="${existingInvoice?.fecha_emision || toInputDate()}" required />
+                  <label class="form-label">Fecha Emisión *</label>
+                  <input type="date" class="form-input" id="inv-date" value="${existingInvoice?.fecha_emision || scanData?.date || toInputDate()}" required />
                 </div>
                 <div class="form-group">
-                  <label class="form-label">Tipo de Factura</label>
-                  <select class="form-select" id="inv-tipo">
-                    <option value="factura" ${existingInvoice?.tipo_factura === 'factura' ? 'selected' : ''}>Factura</option>
-                    <option value="factura_simplificada" ${existingInvoice?.tipo_factura === 'factura_simplificada' ? 'selected' : ''}>Factura Simplificada</option>
-                    <option value="factura_rectificativa" ${existingInvoice?.tipo_factura === 'factura_rectificativa' ? 'selected' : ''}>Factura Rectificativa</option>
+                  <label class="form-label">Tipo Factura</label>
+                  <select class="form-input" id="inv-tipo">
+                    <option value="factura" ${existingInvoice?.tipo_factura === 'factura' ? 'selected' : ''}>Factura Ordinaria</option>
+                    <option value="rectificativa" ${existingInvoice?.tipo_factura === 'rectificativa' ? 'selected' : ''}>Factura Rectificativa</option>
+                    <option value="simplificada" ${existingInvoice?.tipo_factura === 'simplificada' ? 'selected' : ''}>Factura Simplificada</option>
                   </select>
                 </div>
               </div>
@@ -109,17 +143,17 @@ async function renderForm(existingInvoice) {
                 <div class="form-row">
                   <div class="form-group">
                     <label class="form-label">Nombre / Razón Social *</label>
-                    <input type="text" class="form-input" id="receiver-name" value="${existingInvoice?.receptor_nombre || ''}" required placeholder="Cliente S.A." />
+                    <input type="text" class="form-input" id="receiver-name" value="${existingInvoice?.receptor_nombre || scanData?.vendorName || ''}" placeholder="Ej: Tech Solutions S.A." required />
                   </div>
                   <div class="form-group">
                     <label class="form-label">NIF / CIF *</label>
-                    <input type="text" class="form-input" id="receiver-nif" value="${existingInvoice?.receptor_cif_nif || ''}" placeholder="A87654321" />
+                    <input type="text" class="form-input" id="receiver-nif" value="${existingInvoice?.receptor_cif_nif || scanData?.vendorNif || ''}" placeholder="A87654321" />
                   </div>
                 </div>
                 <div class="form-row">
                   <div class="form-group">
                     <label class="form-label">Dirección</label>
-                    <input type="text" class="form-input" id="receiver-address" value="${existingInvoice?.receptor_direccion || ''}" placeholder="Av. del Cliente 42" />
+                    <input type="text" class="form-input" id="receiver-address" value="${existingInvoice?.receptor_direccion || scanData?.vendorAddress || ''}" placeholder="Av. del Cliente 42" />
                   </div>
                   <div class="form-group">
                     <label class="form-label">Email</label>
@@ -147,18 +181,18 @@ async function renderForm(existingInvoice) {
               <div class="invoice-totals" id="invoice-totals"></div>
             </div>
 
-            <!-- Plantilla PDF -->
-            <div class="form-section card">
-              <h3 class="form-section-title"><span class="section-icon">${icons.palette}</span> Plantilla PDF</h3>
-              <div class="template-grid" id="template-grid"></div>
-            </div>
-
             <!-- Notas -->
             <div class="form-section card">
               <h3 class="form-section-title"><span class="section-icon">${icons.fileEdit}</span> Notas</h3>
               <div class="form-group">
-                <textarea class="form-input" id="inv-notes" rows="3" placeholder="Notas adicionales...">${existingInvoice?.notas || ''}</textarea>
+                <textarea class="form-input" id="inv-notes" rows="3" placeholder="Notas adicionales...">${existingInvoice?.notas || (scanData ? 'Importado automáticamente desde ' + scanData.source : '')}</textarea>
               </div>
+            </div>
+
+            <!-- Plantilla PDF -->
+            <div class="form-section card">
+              <h3 class="form-section-title"><span class="section-icon">${icons.palette}</span> Plantilla PDF</h3>
+              <div class="template-grid" id="template-grid"></div>
             </div>
 
             <!-- Opciones de emisión -->
@@ -196,6 +230,11 @@ async function renderForm(existingInvoice) {
             <!-- Actions -->
             <div class="form-footer">
               <button type="button" class="btn btn-ghost" id="form-cancel">Cancelar</button>
+              ${isEdit && existingInvoice?.estado_pago !== 'anulada' ? `
+                <button type="button" class="btn btn-danger" id="form-cancel-invoice">
+                  <span class="btn-icon-inline">${icons.xCircle}</span> Anular
+                </button>
+              ` : ''}
               <button type="button" class="btn btn-warning" id="form-draft">
                 <span class="btn-icon-inline">${icons.save}</span> Guardar Borrador
               </button>
@@ -240,6 +279,21 @@ async function renderForm(existingInvoice) {
 
   document.getElementById('form-back').addEventListener('click', () => router.navigate('invoices'));
   document.getElementById('form-cancel').addEventListener('click', () => router.navigate('invoices'));
+  
+  document.getElementById('form-cancel-invoice')?.addEventListener('click', () => {
+    showModal({
+      title: 'Anular Factura',
+      message: '¿Estás seguro de anular esta factura? Quedará invalidada para su cobro pero mantendrá su número para el registro contable.',
+      confirmText: 'Anular',
+      type: 'danger',
+      onConfirm: async () => {
+        await invoiceService.cancel(existingInvoice.id);
+        showToast('Factura anulada', 'success');
+        router.navigate('invoices');
+      },
+    });
+  });
+
   document.getElementById('add-line').addEventListener('click', () => {
     invoiceLines.push(createEmptyLine());
     renderLines();
@@ -266,8 +320,8 @@ function renderLines() {
   container.innerHTML = invoiceLines.map((line, i) => `
     <div class="invoice-line" data-line-idx="${i}">
       <input type="text" class="form-input line-desc" value="${line.description}" placeholder="Descripción del servicio/producto" data-field="description" />
-      <input type="number" class="form-input line-qty" value="${line.quantity}" min="0" step="1" data-field="quantity" />
-      <input type="number" class="form-input line-price" value="${line.price}" min="0" step="0.01" data-field="price" />
+      <input type="number" class="form-input line-qty" value="${line.quantity}" min="0" step="1" placeholder="Cantidad" data-field="quantity" />
+      <input type="number" class="form-input line-price" value="${line.price}" min="0" step="0.01" placeholder="Precio" data-field="price" />
       <select class="form-select line-iva" data-field="ivaRate">
         ${IVA_RATES.map((r) => `<option value="${r.value}" ${r.value === line.ivaRate ? 'selected' : ''}>${r.value}%</option>`).join('')}
       </select>
@@ -495,6 +549,7 @@ async function saveInvoice(existingInvoice, opts = {}) {
 
     if (savedInvoice?.id) {
       localStorage.setItem(`invoice_template_${savedInvoice.id}`, selectedTemplate);
+      localStorage.setItem(`invoice_lines_${savedInvoice.id}`, JSON.stringify(invoiceLines));
     }
 
     // Emitir

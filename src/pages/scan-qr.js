@@ -259,7 +259,7 @@ function showResult(data) {
         <pre style="margin-top:var(--space-2);padding:var(--space-3);background:var(--bg-input);border-radius:var(--radius-md);font-size:var(--text-xs);max-height:200px;overflow-y:auto;white-space:pre-wrap;word-break:break-word">${data.rawText}</pre>
       </details>
 
-      <div style="display:flex;gap:var(--space-3);margin-top:var(--space-6)">
+      <div style="display:flex;flex-wrap:wrap;gap:var(--space-3);margin-top:var(--space-6)">
         <button class="btn btn-primary" id="result-create-invoice">
           <span class="btn-icon-inline">${icons.plus}</span> Crear Factura con estos datos
         </button>
@@ -285,66 +285,8 @@ function showResult(data) {
 // Create Invoice from extracted data
 // ========================
 async function createInvoiceFromData(data) {
-  const subtotal = data.subtotal || (data.total / (1 + data.ivaRate / 100));
-  const iva = data.iva || (data.total - subtotal);
-
-  try {
-    let id_cliente = null;
-
-    // 1. Intentar encontrar o crear el cliente basado en el NIF/Nombre extraído
-    if (data.vendorNif || data.vendorName) {
-      // Buscar cliente existente por NIF
-      const { data: existingClient } = await supabase
-        .from('clientesEmisor')
-        .select('id')
-        .eq('cif_nif_nie', data.vendorNif)
-        .limit(1)
-        .single();
-
-      if (existingClient) {
-        id_cliente = existingClient.id;
-      } else {
-        // Crear nuevo cliente si no existe
-        const { data: newClient, error: createError } = await supabase
-          .from('clientesEmisor')
-          .insert([{
-            nombre: data.vendorName || 'Proveedor Desconocido',
-            cif_nif_nie: data.vendorNif || '',
-            direccion_completa: data.vendorAddress || '',
-          }])
-          .select()
-          .single();
-
-        if (!createError && newClient) {
-          id_cliente = newClient.id;
-        }
-      }
-    }
-
-    const invoiceData = {
-      fecha_emision: data.date || toInputDate(),
-      tipo_factura: 'factura',
-      id_cliente: id_cliente,
-      descripcion_general: data.description || `Importado desde ${data.source}`,
-      notas: `Importado automáticamente desde ${data.source}`,
-      subtotal_sin_iva: Math.round(subtotal * 100) / 100,
-      porcentaje_iva: data.ivaRate || 21,
-      importe_iva: Math.round(iva * 100) / 100,
-      total_factura: Math.round(data.total * 100) / 100,
-    };
-
-    const created = await invoiceService.create(invoiceData);
-    showToast(`Factura creada y vinculada a ${data.vendorName || 'cliente'}`, 'success');
-    
-    if (created) {
-      router.navigate('edit-invoice', { id: created.id });
-    } else {
-      router.navigate('invoices');
-    }
-  } catch (err) {
-    console.error('Error creating invoice from scan:', err);
-    showToast('Error al crear la factura: ' + err.message, 'error');
-  }
+  sessionStorage.setItem('scannedInvoiceData', JSON.stringify(data));
+  router.navigate('create-invoice', { fromScan: true });
 }
 
 // ========================

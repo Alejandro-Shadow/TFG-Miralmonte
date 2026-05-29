@@ -185,6 +185,7 @@ class InvoiceService {
         .update({
           estado_verifactu: null,
           fecha_creacion_registro: null,
+          estado_pago: 'pendiente'
         })
         .eq('id', id)
         .eq('id_emisor', this.emisorId)
@@ -199,23 +200,7 @@ class InvoiceService {
     }
   }
 
-  async revertToDraft(id) {
-    try {
-      const { data, error } = await supabase
-        .from('facturas')
-        .update({ estado_verifactu: null })
-        .eq('id', id)
-        .eq('id_emisor', this.emisorId)
-        .select()
-        .single();
 
-      if (error) throw error;
-      return data;
-    } catch (error) {
-      console.error('Error reverting invoice:', error);
-      throw error;
-    }
-  }
 
   async cancel(id) {
     try {

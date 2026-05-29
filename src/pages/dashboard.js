@@ -333,11 +333,11 @@ function renderRecentTable(invoices) {
     const statusText = inv.estado_verifactu === 'emitida' ? 'Emitida' : inv.estado_pago === 'anulada' ? 'Anulada' : 'Borrador';
     return `
       <tr class="recent-row" data-id="${inv.id}" style="cursor:pointer">
-        <td><strong>FAC-${inv.numero_factura}</strong></td>
-        <td>${inv.descripcion_general || '-'}</td>
-        <td>${formatDate(inv.fecha_emision)}</td>
-        <td><span class="badge ${statusClass}">${statusText}</span></td>
-        <td style="text-align:right"><strong>${formatCurrency(total)}</strong></td>
+        <td data-label="Nº Factura"><strong>FAC-${inv.numero_factura}</strong></td>
+        <td data-label="Receptor">${inv.descripcion_general || '-'}</td>
+        <td data-label="Fecha">${formatDate(inv.fecha_emision)}</td>
+        <td data-label="Estado"><span class="badge ${statusClass}">${statusText}</span></td>
+        <td data-label="Total" style="text-align:right"><strong>${formatCurrency(total)}</strong></td>
       </tr>
     `;
   }).join('');

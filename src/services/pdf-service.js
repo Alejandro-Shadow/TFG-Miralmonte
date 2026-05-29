@@ -69,6 +69,23 @@ function normalizeInvoice(inv) {
   const subtotal = parseFloat(inv.subtotal_sin_iva) || 0;
   const ivaRate = parseFloat(inv.porcentaje_iva) || 21;
 
+  let loadedLines = null;
+  if (inv.id) {
+    try {
+      const stored = localStorage.getItem(`invoice_lines_${inv.id}`);
+      if (stored) loadedLines = JSON.parse(stored);
+    } catch(e) {}
+  }
+
+  const lines = loadedLines && loadedLines.length > 0 ? loadedLines : [
+    {
+      description: inv.descripcion_general || 'Servicio',
+      quantity: 1,
+      price: subtotal,
+      ivaRate: ivaRate,
+    },
+  ];
+
   return {
     number: `FAC-${inv.numero_factura || 'XXXX'}`,
     date: inv.fecha_emision || new Date().toISOString(),
@@ -90,14 +107,7 @@ function normalizeInvoice(inv) {
       postalCode: inv.receptor_cp || '',
       email: inv.receptor_email || '',
     },
-    lines: [
-      {
-        description: inv.descripcion_general || 'Servicio',
-        quantity: 1,
-        price: subtotal,
-        ivaRate: ivaRate,
-      },
-    ],
+    lines: lines,
     notes: inv.notas || '',
     verifactuQr:  inv.verifactu_qr  || null,
     verifactuUrl: inv.verifactu_url || null,

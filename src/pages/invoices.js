@@ -153,9 +153,12 @@ async function renderTable() {
     const total = parseFloat(inv.total_factura) || 0;
     const isEmitida   = VERIFACTU_EMITTED.includes(inv.estado_verifactu);
     const sentToAEAT  = !!inv.verifactu_uuid || ['Correcto', 'Duplicado', 'correcto', 'duplicado'].includes(inv.estado_verifactu);
-    const statusClass = isEmitida ? 'badge-emitted' : inv.estado_pago === 'anulada' ? 'badge-cancelled' : 'badge-draft';
-    const statusText  = isEmitida ? 'Emitida' : inv.estado_pago === 'anulada' ? 'Anulada' : 'Borrador';
-    const canEdit     = !inv.estado_verifactu;
+    const isAnulada   = inv.estado_pago === 'anulada';
+    const statusClass = isEmitida ? 'badge-emitted' : isAnulada ? 'badge-cancelled' : 'badge-draft';
+    const statusText  = isEmitida ? 'Emitida' : isAnulada ? 'Anulada' : 'Borrador';
+    const canEdit     = !inv.estado_verifactu && !isAnulada;
+    const canDelete   = !inv.estado_verifactu || isAnulada;
+    const canRevert   = !!inv.estado_verifactu || isAnulada;
 
     const verifactuBadge = isEmitida
       ? sentToAEAT
@@ -165,24 +168,24 @@ async function renderTable() {
 
     return `
       <tr>
-        <td><strong style="color: var(--primary-400)">FAC-${inv.numero_factura}</strong></td>
-        <td>${inv.receptor_nombre || '-'}</td>
-        <td>${formatDate(inv.fecha_emision)}</td>
-        <td>${formatDate(inv.fecha_vencimiento || inv.fecha_emision)}</td>
-        <td>
+        <td data-label="Nº Factura"><strong style="color: var(--primary-400)">FAC-${inv.numero_factura}</strong></td>
+        <td data-label="Receptor">${inv.receptor_nombre || '-'}</td>
+        <td data-label="Fecha">${formatDate(inv.fecha_emision)}</td>
+        <td data-label="Vencimiento">${formatDate(inv.fecha_vencimiento || inv.fecha_emision)}</td>
+        <td data-label="Estado">
           <div style="display:flex;align-items:center;gap:var(--space-2)">
             <span class="badge ${statusClass}">${statusText}</span>
             ${verifactuBadge}
           </div>
         </td>
-        <td style="text-align:right"><strong>${formatCurrency(total)}</strong></td>
-        <td>
+        <td data-label="Total" style="text-align:right"><strong>${formatCurrency(total)}</strong></td>
+        <td data-label="Acciones">
           <div class="table-actions">
             <button class="btn-icon" title="Ver" data-view="${inv.id}">${icons.eye}</button>
             ${canEdit ? `<button class="btn-icon" title="Editar" data-edit="${inv.id}">${icons.edit}</button>` : ''}
             <button class="btn-icon" title="PDF" data-pdf="${inv.id}">${icons.download}</button>
-            ${!canEdit ? `<button class="btn-icon" title="Revertir a Borrador" data-revert="${inv.id}">${icons.refreshCw}</button>` : ''}
-            ${canEdit ? `<button class="btn-icon" title="Eliminar" data-delete="${inv.id}">${icons.trash}</button>` : ''}
+            ${canRevert ? `<button class="btn-icon" title="Revertir a Borrador" data-revert="${inv.id}">${icons.refreshCw}</button>` : ''}
+            ${canDelete ? `<button class="btn-icon" title="Eliminar" data-delete="${inv.id}">${icons.trash}</button>` : ''}
           </div>
         </td>
       </tr>
